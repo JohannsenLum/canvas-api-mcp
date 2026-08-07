@@ -7,6 +7,7 @@ import os
 
 from fastmcp import FastMCP
 
+from . import prompts, resources
 from .client import CanvasClient
 from .config import Config
 from .tools import content, discussions, gateway, orientation, student
@@ -40,6 +41,8 @@ discussions.register(mcp, get_client)
 gateway.register(mcp, get_client)
 orientation.register(mcp, get_client)
 student.register(mcp, get_client)
+resources.register(mcp, get_client)
+prompts.register(mcp)
 
 
 def main() -> None:
