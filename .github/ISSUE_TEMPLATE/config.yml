@@ -1,0 +1,13 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Setup help
+    url: https://mcp.johannsenlum.com/canvas-lms/install
+    about: Token creation, per-client configuration, and troubleshooting.
+  - name: Security vulnerability
+    url: https://github.com/JohannsenLum/canvas-api-mcp/security/advisories/new
+    about: Report privately. Never open a public issue for anything involving a token.
+  - name: My institution has no "+ New access token" button
+    url: https://mcp.johannsenlum.com/canvas-lms/install
+    about: >
+      Your institution has disabled student token creation. This project cannot work
+      around that — ask your IT service desk whether API access can be enabled.

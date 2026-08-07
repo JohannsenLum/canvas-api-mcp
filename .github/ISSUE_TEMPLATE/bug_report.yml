@@ -1,0 +1,80 @@
+name: Bug report
+description: Something doesn't work
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never paste your Canvas token.** If you think a token has been exposed, revoke
+        it first (Canvas → Account → Settings → Approved Integrations → bin icon), then
+        report privately via [Security Advisories](https://github.com/JohannsenLum/canvas-api-mcp/security/advisories/new)
+        rather than here.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+      placeholder: |
+        I asked "what's due this week" and got …
+    validations:
+      required: true
+
+  - type: textarea
+    id: error
+    attributes:
+      label: Error message or tool output
+      description: >
+        Paste the full message. Redact anything that looks like a token — a long string
+        starting with a number and a tilde.
+      render: text
+
+  - type: input
+    id: canvas-url
+    attributes:
+      label: Canvas instance
+      description: Just the host, e.g. canvas.nus.edu.sg. Behaviour varies by deployment.
+      placeholder: canvas.yourschool.edu
+    validations:
+      required: true
+
+  - type: dropdown
+    id: client
+    attributes:
+      label: MCP client
+      options:
+        - Claude Code
+        - Claude Desktop
+        - Cursor
+        - VS Code / Copilot
+        - LM Studio
+        - Zed
+        - Windsurf
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      description: Output of `python --version`. The server needs 3.11 or newer.
+      placeholder: "3.12.1"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: canvas-api-mcp version
+      description: Or the git commit if you installed with `uvx --from git+…`.
+      placeholder: "0.1.0"
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have not included my Canvas token anywhere in this report
+          required: true
+        - label: I checked whether the same request works in the Canvas web UI

@@ -16,3 +16,6 @@ build/
 .ruff_cache/
 .mypy_cache/
 .DS_Store
+# Vercel — CLI project link AND project-local auth store
+.vercel
+.vercel-auth/
