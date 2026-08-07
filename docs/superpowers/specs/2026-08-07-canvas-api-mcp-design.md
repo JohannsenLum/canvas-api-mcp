@@ -5,31 +5,39 @@
 
 ## Goal
 
-An MCP server that lets any AI agent read and act on a user's Canvas LMS account —
-serving students and educators, installable by anyone at any institution.
+An MCP server that lets any AI agent read and act on a user's own Canvas LMS account.
 
-Primary user is the author (NUS student). Secondary users are peers at NUS and, if it
-gains traction, educators and students at other institutions. Open source (MIT), built
-to accept forks and pull requests.
+**Phase 1 (this spec): student use.** Curated tools cover a student's own data only. The
+author is the first user (NUS student); peers at NUS are the first distribution target.
+Open source (MIT), built to accept forks and pull requests.
+
+Scoping to students first is deliberate. A student token reaches only that student's own
+data, which removes third-party personal-data handling from the design entirely, and makes
+every tool live-testable by the author. See Compliance.
 
 ## Non-goals
 
-- No hosted/shared deployment. Every user runs their own local process with their own
-  token. Hosting would mean custodying other people's Canvas credentials, which carries
-  liability and operational burden with no offsetting benefit.
-- No institution-specific hardcoding. NUS is the first test instance, not the target.
-- Not competing on curated-tool count with existing Canvas MCP servers. The tool surface
-  is deliberately small; completeness comes from the gateway layer.
+- **No curated educator tools in phase 1.** Not a capability limitation: Canvas enforces
+  permissions server-side per token, so the gateway layer already reaches every educator
+  endpoint and will work for anyone holding a teacher token. Curated educator tools are an
+  ergonomics layer, deferred to phase 2 (see Roadmap).
+- **No hosted/shared deployment.** Every user runs their own local process with their own
+  token. Hosting would mean custodying other people's Canvas credentials — high liability,
+  no offsetting benefit.
+- **No institution-specific hardcoding.** NUS is the first test instance, not the target.
+- **Not competing on curated-tool count** with existing Canvas MCP servers. The tool
+  surface is deliberately small; completeness comes from the gateway.
 
 ## Background
 
 NUS runs a stock Instructure Canvas instance at `https://canvas.nus.edu.sg`, behind SAML
 SSO (`/login/saml/210`). SSO gates *browser* login only; the REST API authenticates
-separately via bearer token, so no SAML handling is needed.
+separately via bearer token, so no SAML handling is needed. Student personal access token
+generation was confirmed enabled on 2026-08-07.
 
-The instance serves its own machine-readable spec (Swagger 1.2) at
-`/doc/api/api-docs.json`, enumerating 143 resource files. Extracting all of them yields
-the authoritative endpoint map for that exact deployment:
+The instance serves its own machine-readable spec (Swagger 1.2) at `/doc/api/api-docs.json`,
+enumerating 143 resource files. Extracting all of them yields the authoritative endpoint
+map for that exact deployment:
 
 | Metric | Count |
 |---|---|
@@ -45,57 +53,59 @@ Two facts drive the architecture:
 
 1. Real usage is extremely concentrated. "What's due this week?" is answered by two
    endpoints (`/users/self/todo`, `/users/self/upcoming_events`) out of 1,116.
-2. The long tail is genuinely needed but unpredictable, especially for educators.
+2. The long tail is genuinely needed but unpredictable.
 
-Exposing 1,116 endpoints as 1,116 tools is not viable: tool-selection accuracy degrades
-as the list grows, and every tool schema costs context on every turn. Exposing only a
-curated subset permanently orphans the long tail and requires hand-writing a new tool
-each time Instructure ships an endpoint.
+Exposing 1,116 endpoints as 1,116 tools is not viable: tool-selection accuracy degrades as
+the list grows, and every tool schema costs context on every turn. Exposing only a curated
+subset permanently orphans the long tail and requires hand-writing a new tool each time
+Instructure ships an endpoint.
 
 ## Architecture
 
 Three layers.
 
-**Layer 1 — Curated tools (22).** Named after jobs, not endpoints. Carry real ergonomics:
-`whats_due()` fans out to two endpoints and merges results, because that is what the
-question means. Covers the high-frequency student and educator workflows.
+**Layer 1 — Curated tools (15).** Named after jobs, not endpoints. Carry real ergonomics:
+`whats_due()` fans out to multiple endpoints and merges results, because that is what the
+question means.
 
-**Layer 2 — Discovery.** `search_canvas_api(query)` ranks matches over an embedded
-catalog of all 1,116 endpoints (method, path, nickname, summary, parameters).
+**Layer 2 — Discovery.** `search_canvas_api(query)` ranks matches over an embedded catalog
+of all 1,116 endpoints (method, path, nickname, summary, parameters).
 
 **Layer 3 — Passthrough.** `canvas_request(method, path, params, body, dry_run)` executes
-any endpoint the search surfaces.
+any endpoint the search surfaces, subject to whatever the caller's token permits.
 
-Result: complete API reach at 24 tool schemas (22 curated + 2 gateway).
+Result: complete API reach at 17 tool schemas (15 curated + 2 gateway).
 
 ```
 "what's due this week"      -> Layer 1, one call, no discovery
-"who hasn't submitted PS3"  -> Layer 1, one call
-"bulk-update SIS section    -> Layer 2 finds POST /accounts/{id}/sis_imports
- codes for my tutorial"     -> Layer 3 executes it
+"my grade breakdown"        -> Layer 1, one call
+"list my group memberships" -> Layer 2 finds GET /users/self/groups
+                            -> Layer 3 executes it
 ```
 
-### Role handling
+### Permission model
 
-Role is detected from the token, not configured. On first use the server calls
+Authorisation is Canvas's job, not the server's. Every request carries the user's token and
+Canvas decides what it permits. The server never simulates, predicts, or pre-filters
+permissions — it surfaces Canvas's answer.
+
+The server still detects identity for *ergonomics*: on first use it calls
 `GET /v1/users/{id}` (`id=self`) and `GET /v1/users/{user_id}/enrollments`
 (`user_id=self`), yielding per-course role (`student`, `ta`, `teacher`, `designer`,
-`observer`). Cached for the process lifetime.
+`observer`), cached for the process lifetime. This is used to write better error messages
+and to let agents orient, not to gate calls.
 
-All tools register regardless of role. A student calling `grade_submission` receives
-Canvas's 403 translated into a plain-language explanation naming their actual role in
-that course. Rationale: role varies *per course* — the same user is commonly a student in
-one course and a TA in another — so a process-wide role flag would be wrong more often
-than right.
+Consequence: the same binary serves educators through the gateway the moment a teacher
+token is used, with no code change.
 
 ### Write posture
 
-Writes are first-class and ungated, per explicit decision. There is no `ENABLE_WRITES`
-flag and no `confirm=` parameter. The checkpoint is the MCP client's own per-tool
-approval prompt.
+Writes are first-class and ungated, per explicit decision. There is no `ENABLE_WRITES` flag
+and no `confirm=` parameter. The checkpoint is the MCP client's own per-tool approval
+prompt.
 
 Because that prompt is the only checkpoint, it must be readable at the moment it appears.
-Therefore, mandatory for every write tool:
+Mandatory for every write tool:
 
 - `ToolAnnotations(readOnlyHint=False, destructiveHint=True, idempotentHint=False)`
 - Tool description states the concrete effect in its first sentence
@@ -124,7 +134,6 @@ canvas-api-mcp/
       student.py
       content.py
       discussions.py
-      educator.py
       gateway.py
     resources.py
     prompts.py
@@ -135,49 +144,50 @@ canvas-api-mcp/
   tests/
     test_client.py
     test_catalog.py
-    test_contracts.py
+    test_tools.py
     fixtures/
 ```
 
-Each module has one responsibility and is independently testable. `client.py` knows
-nothing about Canvas semantics; `tools/*` know nothing about HTTP.
+Each module has one responsibility and is independently testable. `client.py` knows nothing
+about Canvas semantics; `tools/*` know nothing about HTTP.
 
 ### client.py
 
 The foundation every tool goes through.
 
-- **Auth:** `Authorization: Bearer {CANVAS_TOKEN}` on every request.
+- **Auth:** `Authorization: Bearer {CANVAS_TOKEN}` on every request. The header is produced
+  in one place so an OAuth2 token source can replace it in phase 2 without touching callers.
 - **Pagination:** Canvas paginates nearly everything via RFC 5988 `Link` headers with
-  `rel="next"`. The client auto-follows to a configurable cap (default 10 pages) and
-  reports truncation explicitly in the result rather than silently returning partial data.
+  `rel="next"`. The client auto-follows to a configurable cap (default 10 pages) and reports
+  truncation explicitly rather than silently returning partial data.
 - **Rate limiting:** Canvas uses a leaky-bucket quota and returns `X-Rate-Limit-Remaining`.
-  The client throttles as that value approaches zero and backs off on the 403
-  "Rate Limit Exceeded" response, which is distinguished from a genuine permission 403 by
-  inspecting the body.
+  The client throttles as that value approaches zero and backs off on the 403 "Rate Limit
+  Exceeded" response, distinguished from a genuine permission 403 by inspecting the body.
+  This is a compliance requirement, not an optimisation — see Compliance.
 - **Retries:** exponential backoff on 429 and 5xx; no retry on 4xx.
 - **Error translation:** every Canvas error becomes an actionable message.
   - `401` -> token invalid or expired; how to mint a new one
   - `403` -> insufficient permission, naming the user's actual role in that course
-  - `404` -> not found, or exists but not visible to this user
+  - `404` -> not found, or exists but not visible to this user, or feature not enabled at
+    this institution
 
 ### catalog.py
-
-Builds and searches the endpoint catalog.
 
 `scripts/build_catalog.py` takes any Canvas base URL, fetches `/doc/api/api-docs.json`,
 downloads each listed resource file, flattens every operation to
 `{family, method, path, nickname, summary, parameters}`, and writes `catalog.json`.
 
 A pre-built catalog generated from NUS ships in `data/`. Because every Canvas instance
-serves its own spec, users at other institutions can regenerate to match their own
-deployment's version and enabled feature set. Catalog rebuilds require no code changes.
+serves its own spec, users elsewhere can regenerate to match their deployment's version and
+enabled feature set. Catalog rebuilds require no code changes.
 
 `search_canvas_api` ranks by keyword overlap across nickname, summary, and path, with an
 optional method filter.
 
 ## Tool surface
 
-Write tools marked ✏️.
+Write tools marked ✏️. All endpoint mappings verified against the catalog extracted from
+`canvas.nus.edu.sg` on 2026-08-07.
 
 ### Orientation (2)
 
@@ -214,31 +224,12 @@ Write tools marked ✏️.
 | `read_discussion` | `GET /v1/courses/{course_id}/discussion_topics`, `.../{topic_id}/view` |
 | `post_discussion_reply` ✏️ | `POST /v1/courses/{course_id}/discussion_topics/{topic_id}/entries` |
 
-### Educator (7)
-
-| Tool | Endpoints |
-|---|---|
-| `course_roster` | `GET /v1/courses/{course_id}/users` |
-| `submission_queue` | `GET /v1/courses/{course_id}/students/submissions` |
-| `get_submissions` | `GET /v1/courses/{course_id}/assignments/{assignment_id}/submissions` |
-| `grade_submission` ✏️ | `PUT /v1/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}` |
-| `bulk_grade` ✏️ | `POST /v1/courses/{course_id}/assignments/{assignment_id}/submissions/update_grades` |
-| `post_announcement` ✏️ | `POST /v1/courses/{course_id}/discussion_topics` (`is_announcement=true`) |
-| `grant_extension` ✏️ | `POST /v1/courses/{course_id}/assignments/{assignment_id}/overrides` |
-
-`at_risk_students` (`GET /v1/courses/{course_id}/analytics/student_summaries`) is reachable
-via the gateway rather than curated, since Canvas Analytics is disabled at some
-institutions and a curated tool that frequently 404s is worse than no tool.
-
 ### Gateway (2)
 
 | Tool | Behaviour |
 |---|---|
 | `search_canvas_api` | Ranked endpoint search over the catalog; optional method filter |
-| `canvas_request` ✏️ | Executes any endpoint. `dry_run=True` returns the prepared request without sending |
-
-All endpoint mappings above were verified against the catalog extracted from
-`canvas.nus.edu.sg` on 2026-08-07.
+| `canvas_request` ✏️ | Executes any endpoint, subject to token permissions. `dry_run=True` returns the prepared request without sending |
 
 ## Resources
 
@@ -252,9 +243,9 @@ All endpoint mappings above were verified against the catalog extracted from
 
 | Prompt | Purpose |
 |---|---|
-| `grading_triage` | Pull ungraded queue, cluster failure modes, draft per-student feedback for review before writing back |
 | `week_ahead` | Merge deadlines with submission state, rank by urgency and weight |
 | `study_pack` | Gather modules, pages, and files for a topic into a study set |
+| `grade_check` | Compute standing in a course and what remaining work is worth |
 
 These are the workflow layer, and the natural seed for Agent Skills later.
 
@@ -271,55 +262,88 @@ with an actionable message naming the variable and how to obtain a token.
 
 ## Testing
 
-Educator and admin endpoints cannot be exercised live — the author holds a student token,
-so every teacher call returns 403. Coverage is therefore split:
+Because phase 1 is student-scoped, every tool is exercisable with the author's own token.
+No mock-only surface.
 
-- **Contract tests** (`test_contracts.py`) — generated from the catalog. For every curated
-  tool, assert the request the tool constructs matches the spec: correct method, correct
-  path template, required parameters present, parameter types valid. Verifies the educator
-  half by construction without a teacher token.
-- **Fixture tests** (`test_client.py`) — recorded Canvas responses covering `Link`-header
+- **Unit tests** (`test_client.py`) — recorded Canvas responses covering `Link`-header
   pagination, rate-limit backoff, and each error-translation branch.
 - **Catalog tests** (`test_catalog.py`) — parse and search behaviour against a checked-in
   spec sample.
+- **Tool tests** (`test_tools.py`) — each tool's request construction and response shaping,
+  against fixtures.
 - **Live smoke tests** — real calls against the author's student token, skipped unless
-  `CANVAS_LIVE_TESTS=1`, never run in CI.
+  `CANVAS_LIVE_TESTS=1`, never run in CI. Read-only; write tools are verified via `dry_run`.
 
-`dry_run` on `canvas_request` doubles as a manual verification path for write endpoints.
+## Compliance
 
-## Distribution
+Instructure's OAuth2 documentation states that manually generated personal access tokens
+are intended for testing, that "asking any other user to manually generate a token and enter
+it into your application is a violation of Canvas' API Policy," and that "applications in
+use by multiple users MUST use OAuth to obtain tokens."
 
-- GitHub, MIT licence, issues and PRs open.
-- PyPI as `canvas-api-mcp`; primary install path is `uvx canvas-api-mcp`, which requires no
-  prior install step.
-- stdio transport by default. `--transport http` exists for users who want to self-host
-  behind their own auth, documented as an advanced option and not the recommended path.
-- README carries copy-paste config blocks for Claude Code, Claude Desktop, Cursor, and
-  Continue.
+This produces a hard boundary in the project's rollout:
+
+| Activity | Position |
+|---|---|
+| Author using their own token on their own data | Sanctioned — the documented use of manual tokens |
+| Publishing source code | Fine |
+| Instructing other users to mint tokens and paste them | **Contravenes Canvas API Policy** |
+
+**Therefore: phase 1 is for personal use and source publication only. General distribution
+is gated on OAuth2 support (phase 2).**
+
+Tokens never reach the author under any configuration — each user's token stays in their own
+MCP client config on their own machine. This removes credential-custody risk but does not
+resolve the policy point above, which concerns the instruction to mint tokens, not their
+storage location.
+
+Other obligations reflected in the design:
+
+- **Rate limiting** — the API Policy prohibits interfering with or overloading systems. The
+  client's `X-Rate-Limit-Remaining` throttling is a compliance requirement and must not be
+  removed or made optional.
+- **Academic integrity** — the API Policy prohibits use violating academic integrity
+  policies. `submit_assignment` is the relevant surface; the README must carry an explicit
+  note that submitting AI-generated work may breach institutional rules.
+- **Copyright** — `read_file` retrieves course materials for the user's own study. The tool
+  must not cache to a shared location, and the README must not encourage redistribution.
+- **Personal data** — a student token reaches only the user's own data, so no third-party
+  personal data is processed in phase 1. This changes in phase 2 and must be revisited then,
+  including Singapore PDPA obligations and NUS data-classification rules for transferring
+  student data to external AI services.
+
+Not legal advice. NUS IT should be consulted before distribution.
+
+## Roadmap
+
+**Phase 1 (this spec)** — student-scoped curated tools, gateway, personal use.
+
+**Phase 2 — OAuth2 and educator support.** Requires a Canvas developer key issued by NUS
+Canvas administrators. Unlocks compliant multi-user distribution, scoped and revocable
+tokens, and curated educator tools (grading triage, submission queue, extensions,
+announcements). PDPA and NUS data-governance review is a prerequisite, not a follow-up,
+because educator use processes other people's personal data.
+
+Phase 1 is designed so phase 2 is additive: the `Authorization` header is produced in one
+place in `client.py`, and educator endpoints are already reachable via the gateway.
 
 ## Risks
 
-**Institutions may disable student token generation.** Confirmed **available** at NUS on
-2026-08-07 — `+ New access token` is present under Approved Integrations for a student
-account, so the bearer-token design is viable on the first target instance. This remains a
-risk at other institutions: where token generation is disabled, no bearer-token design
-works and the only fallback is browser automation driving an authenticated session —
-substantially worse, and out of scope for this spec. The README must state this
-prerequisite plainly so prospective users can check before installing.
+**Distribution is blocked on OAuth2.** Phase 1 must not be promoted to other users. The
+README must state that it is personal-use software pending a developer key.
 
-Canvas allows an optional expiry when minting a token. The README should recommend setting
-a term-length expiry rather than accepting "never", to bound the blast radius of a leak.
+**Institutions may disable student token generation.** Confirmed available at NUS on
+2026-08-07. Remains a prerequisite elsewhere; the README must say so.
 
 **A Canvas token is equivalent to full account access.** It can read grades and private
-instructor messages and submit work. It is stored in plaintext in the MCP client config
-per explicit decision. The README must state this so users at other institutions can make
-their own call.
+instructor messages and submit work. It is stored in plaintext in the MCP client config per
+explicit decision. The README must state this, and recommend setting a term-length token
+expiry rather than accepting "never".
 
-**Analytics and some features are per-institution.** Endpoints present in the spec may
-still 404 where a feature is disabled. Error translation must distinguish "not found" from
-"not enabled here."
+**Features vary per institution.** Endpoints present in the spec may 404 where a feature is
+disabled. Error translation must distinguish "not found" from "not enabled here."
 
 ## Open decisions
 
 None. Naming (`canvas-api-mcp`), storage (client `env` block), write posture (ungated),
-and architecture (three-layer) are settled.
+architecture (three-layer), and phase-1 scope (student-only, personal use) are settled.
