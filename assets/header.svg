@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 300" width="840" height="300" role="img" aria-labelledby="t d">
   <title id="t">canvas-api-mcp</title>
-  <desc id="d">A terminal shows two questions. "What courses am I taking this sem?" is answered instantly by the curated my_courses tool, listing CS3230, CS2040S, MA2001 and GEA1000. "What groups am I in?" has no curated tool, so search_canvas_api finds GET /v1/users/self/groups among 1,116 Canvas endpoints and canvas_request executes it. 17 tools, 1,116 endpoints reachable, 120 tests, MIT licence.</desc>
+  <desc id="d">A terminal shows two questions. "What mods am I taking this sem?" is answered instantly by the curated my_courses tool, listing CS3230, CS2040S, MA2001 and GEA1000. "What groups am I in?" has no curated tool, so search_canvas_api finds GET /v1/users/self/groups among 1,116 Canvas endpoints and canvas_request executes it. 17 tools, 1,116 endpoints reachable, 120 tests, MIT licence.</desc>
 
   <style>
     .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
@@ -54,7 +54,7 @@
   <!-- beat 1 — curated fast path -->
   <g class="ln1">
     <text class="mono ok" x="28" y="72" font-size="15">❯</text>
-    <text class="mono fg" x="50" y="72" font-size="15">what courses am I taking this sem?</text>
+    <text class="mono fg" x="50" y="72" font-size="15">what mods am I taking this sem?</text>
   </g>
   <g class="ln2">
     <text class="mono acc" x="50" y="98" font-size="13">my_courses()</text>

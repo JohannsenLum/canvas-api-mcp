@@ -1,32 +1,5 @@
 <!-- mcp-name: io.github.JohannsenLum/canvas-api-mcp -->
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/JohannsenLum/canvas-api-mcp/main/assets/header-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/JohannsenLum/canvas-api-mcp/main/assets/header-light.svg">
-    <img src="https://raw.githubusercontent.com/JohannsenLum/canvas-api-mcp/main/assets/header-light.svg"
-         alt="Terminal demo of the Canvas MCP gateway. Student asks: 'what groups am I in?' The model calls search_canvas_api('my group memberships'), which finds GET /v1/users/self/groups — 'List your groups' — among 1,116 Canvas endpoints. It then calls canvas_request('GET', '/v1/users/self/groups'), hitting https://canvas.nus.edu.sg/api/v1/users/self/groups directly. Caption: No curated tool covers this. The gateway found it. Footer stats: 17 tools, 1,116 endpoints, 120 tests, MIT license."
-         width="840">
-  </picture>
-</p>
-
-## See it work
-
-A real, verified interaction — no curated tool wraps `/v1/users/self/groups`, so the
-gateway finds and calls it at runtime instead:
-
-```text
-$ what groups am I in?
-
-→ search_canvas_api("my group memberships")
-    GET /v1/users/self/groups   "List your groups"
-
-→ canvas_request("GET", "/v1/users/self/groups")
-    https://canvas.nus.edu.sg/api/v1/users/self/groups
-
-# No curated tool covers this. The gateway found it.
-```
-
 # canvas-api-mcp
 
 <h2 align="center">Never miss an assignment deadline again.</h2>
@@ -38,6 +11,12 @@ $ what groups am I in?
 
 An MCP server for Canvas LMS. 15 curated tools for everyday student work, plus a
 gateway that reaches every endpoint your Canvas instance exposes.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/JohannsenLum/canvas-api-mcp/main/assets/header.svg"
+       alt="Terminal. Question one: 'what mods am I taking this sem?' — answered instantly by the curated my_courses tool (CS3230, CS2040S, MA2001, GEA1000). Question two: 'what groups am I in?' — no curated tool covers it, so search_canvas_api finds GET /v1/users/self/groups among 1,116 Canvas endpoints and canvas_request executes it. 17 tools · 1,116 endpoints reachable · 120 tests · MIT."
+       width="840">
+</p>
 
 **📖 Documentation: [mcp.johannsenlum.com/canvas-lms](https://mcp.johannsenlum.com/canvas-lms)**
 — [install guide](https://mcp.johannsenlum.com/canvas-lms/install) ·
