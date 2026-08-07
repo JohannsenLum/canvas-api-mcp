@@ -64,7 +64,7 @@ Instructure ships an endpoint.
 
 Three layers.
 
-**Layer 1 — Curated tools (15).** Named after jobs, not endpoints. Carry real ergonomics:
+**Layer 1 — Curated tools (16).** Named after jobs, not endpoints. Carry real ergonomics:
 `whats_due()` fans out to multiple endpoints and merges results, because that is what the
 question means.
 
@@ -74,7 +74,7 @@ of all 1,116 endpoints (method, path, nickname, summary, parameters).
 **Layer 3 — Passthrough.** `canvas_request(method, path, params, body, dry_run)` executes
 any endpoint the search surfaces, subject to whatever the caller's token permits.
 
-Result: complete API reach at 17 tool schemas (15 curated + 2 gateway).
+Result: complete API reach at 18 tool schemas (16 curated + 2 gateway).
 
 ```
 "what's due this week"      -> Layer 1, one call, no discovery
@@ -189,11 +189,12 @@ optional method filter.
 Write tools marked ✏️. All endpoint mappings verified against the catalog extracted from
 `canvas.nus.edu.sg` on 2026-08-07.
 
-### Orientation (2)
+### Orientation (3)
 
 | Tool | Endpoints |
 |---|---|
 | `whoami` | `GET /v1/users/self/profile`, `GET /v1/users/{user_id}/enrollments` |
+| `get_calendar_feed_url` | `GET /v1/users/self/profile` |
 | `my_courses` | `GET /v1/courses` |
 
 ### Student (7)
