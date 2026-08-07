@@ -2,7 +2,7 @@
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/JohannsenLum/canvas-api-mcp/main/assets/header.svg"
-       alt="Terminal: asking 'what groups am I in?' — no curated tool covers it, so search_canvas_api finds GET /v1/users/self/groups among 1,116 Canvas endpoints and canvas_request executes it. 17 tools · 1,116 endpoints · 120 tests · MIT."
+       alt="Terminal. Question one: 'what courses am I taking this sem?' — answered instantly by the curated my_courses tool (CS3230, CS2040S, MA2001, GEA1000). Question two: 'what groups am I in?' — no curated tool covers it, so search_canvas_api finds GET /v1/users/self/groups among 1,116 Canvas endpoints and canvas_request executes it. 17 tools · 1,116 endpoints reachable · 120 tests · MIT."
        width="840">
 </p>
 
