@@ -240,6 +240,78 @@ async def do_course_announcements(
     return out
 
 
+SUBMISSION_REQUIREMENTS = {
+    "online_text_entry": "body",
+    "online_url": "url",
+    "online_upload": "file_ids",
+}
+
+
+async def do_submit_assignment(
+    client: CanvasClient,
+    course_id: int,
+    assignment_id: int,
+    submission_type: str,
+    body: str | None = None,
+    url: str | None = None,
+    file_ids: list[int] | None = None,
+) -> dict:
+    if submission_type not in SUBMISSION_REQUIREMENTS:
+        return {
+            "error": True,
+            "status": 0,
+            "message": (
+                f"Unknown submission_type {submission_type!r}. Supported types: "
+                f"{', '.join(sorted(SUBMISSION_REQUIREMENTS))}. Check the assignment's "
+                "submission_types with get_assignment."
+            ),
+        }
+
+    supplied = {"body": body, "url": url, "file_ids": file_ids}
+    required = SUBMISSION_REQUIREMENTS[submission_type]
+    if not supplied[required]:
+        return {
+            "error": True,
+            "status": 0,
+            "message": (
+                f"submission_type {submission_type!r} requires the {required!r} "
+                "argument, which was not provided. Nothing was submitted."
+            ),
+        }
+
+    payload: dict[str, Any] = {"submission_type": submission_type}
+    if submission_type == "online_text_entry":
+        payload["body"] = body
+    elif submission_type == "online_url":
+        payload["url"] = url
+    else:
+        payload["file_ids"] = file_ids
+
+    try:
+        response = await client.request(
+            "POST",
+            f"courses/{course_id}/assignments/{assignment_id}/submissions",
+            json={"submission": payload},
+        )
+    except CanvasError as exc:
+        return {
+            "error": True,
+            "status": exc.status,
+            "message": exc.message,
+            "hint": exc.hint,
+        }
+
+    submission = response.data or {}
+    return {
+        "id": submission.get("id"),
+        "workflow_state": submission.get("workflow_state"),
+        "submitted_at": submission.get("submitted_at"),
+        "attempt": submission.get("attempt"),
+        "late": submission.get("late"),
+        "preview_url": submission.get("preview_url"),
+    }
+
+
 def register(mcp: FastMCP, get_client) -> None:
     @mcp.tool(
         description=(
@@ -327,3 +399,38 @@ def register(mcp: FastMCP, get_client) -> None:
     ) -> list[dict]:
         """Recent announcements."""
         return await do_course_announcements(get_client(), course_id=course_id, days=days)
+
+    @mcp.tool(
+        description=(
+            "Submits work to Canvas for an assignment. This is recorded against the "
+            "deadline immediately, is visible to the instructor, and cannot be undone "
+            "from here. Confirm the assignment and content with the user before calling. "
+            "Check accepted formats with get_assignment first — submission_type must be "
+            "one the assignment allows. For online_upload, file_ids must reference files "
+            "already uploaded to Canvas."
+        ),
+        annotations=ToolAnnotations(
+            title="Submit Assignment",
+            readOnlyHint=False,
+            destructiveHint=True,
+            idempotentHint=False,
+            openWorldHint=True,
+        ),
+    )
+    async def submit_assignment(
+        course_id: int = Field(description="Course id"),
+        assignment_id: int = Field(description="Assignment id"),
+        submission_type: str = Field(
+            description="One of: online_text_entry, online_url, online_upload"
+        ),
+        body: str | None = Field(default=None, description="Text content for online_text_entry"),
+        url: str | None = Field(default=None, description="URL for online_url"),
+        file_ids: list[int] | None = Field(
+            default=None, description="Canvas file ids for online_upload"
+        ),
+    ) -> dict:
+        """Submit an assignment."""
+        return await do_submit_assignment(
+            get_client(), course_id, assignment_id, submission_type,
+            body=body, url=url, file_ids=file_ids,
+        )
