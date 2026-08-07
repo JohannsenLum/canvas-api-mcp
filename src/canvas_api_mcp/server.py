@@ -9,7 +9,7 @@ from fastmcp import FastMCP
 
 from .client import CanvasClient
 from .config import Config
-from .tools import gateway
+from .tools import gateway, orientation
 
 mcp = FastMCP(
     "Canvas",
@@ -36,6 +36,7 @@ def get_client() -> CanvasClient:
 
 
 gateway.register(mcp, get_client)
+orientation.register(mcp, get_client)
 
 
 def main() -> None:
