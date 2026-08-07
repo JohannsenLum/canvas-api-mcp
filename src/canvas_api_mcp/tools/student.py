@@ -124,9 +124,30 @@ def _parse_due(value: str | None) -> datetime | None:
 
 async def do_whats_due(client: CanvasClient, days: int = 14) -> dict[str, Any]:
     warnings: list[str] = []
-    todo = await _safe_fetch(client, "users/self/todo", warnings)
-    upcoming = await _safe_fetch(client, "users/self/upcoming_events", warnings)
-    planner = await _safe_fetch(client, "planner/items", warnings)
+    sources = ("users/self/todo", "users/self/upcoming_events", "planner/items")
+    todo = await _safe_fetch(client, sources[0], warnings)
+    upcoming = await _safe_fetch(client, sources[1], warnings)
+    planner = await _safe_fetch(client, sources[2], warnings)
+
+    if len(warnings) == len(sources):
+        # Every source failed: nothing was actually read from Canvas, so an
+        # empty `items` here would tell a student "nothing due" when the true
+        # answer is "unknown". _safe_fetch appends exactly one warning per
+        # failed source, so this count means a total outage, not a quiet day.
+        # Return an error shape (no `items` at all) instead of a clean-looking
+        # empty result, so a model can't mistake this for a real answer.
+        return {
+            "error": True,
+            "status": 0,
+            "message": (
+                "Could not determine what is due: every source failed to load "
+                "from Canvas, so this is not evidence of an empty schedule. "
+                "Do not report that nothing is due — report that Canvas "
+                "could not be reached, and see `warnings` for the cause "
+                "(e.g. a wrong CANVAS_BASE_URL or an unreachable host)."
+            ),
+            "warnings": warnings,
+        }
 
     items: dict[tuple, dict] = {}
     for entry in todo:

@@ -4,15 +4,18 @@ name: Notify Telegram (CI)
 # outcome is worth interrupting someone for.
 #
 # WHAT IT SENDS:
-#   - Test failed on main            → something broke on the default branch
+#   - Any Test run finishing on main — pass or fail. Green on main doubles as the
+#     "your push landed and is healthy" signal, which is what makes this topic a
+#     usable deployment log rather than a pure alarm.
 #   - Publish finished (either way)  → a release either shipped or didn't
 #
 # WHAT IT DELIBERATELY DOES NOT SEND:
-#   - Test passing on main. Green is the expected state; announcing it trains you
-#     to ignore the channel, and then the red one gets ignored too.
 #   - Test failing on a PR. The contributor sees that on their own PR, and it is
-#     their job to fix before you look.
+#     their job to fix before you look. PR-branch noise would swamp the topic.
 #   - Run started / in progress. You cannot act on "it began".
+#
+# If green-on-main ever becomes noise, restore the `conclusion != 'success'`
+# clause in the job's `if:` and this reverts to failures-only.
 #
 # SECURITY: `workflow_run` always executes in the base-repo context, never with
 # PR code, so secrets are safe here. As with notify-telegram.yml, do NOT add a
@@ -31,13 +34,18 @@ jobs:
     runs-on: ubuntu-latest
     if: >-
       github.event.workflow_run.name == 'Publish' ||
-      (github.event.workflow_run.conclusion != 'success' &&
-       github.event.workflow_run.head_branch == 'main')
+      github.event.workflow_run.conclusion == 'action_required' ||
+      github.event.workflow_run.head_branch == 'main'
     steps:
       - name: Send Telegram message
         env:
           TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Deployment/CI noise goes to Dev Ops. The one exception is "CI is waiting
+          # for your approval", which is about a specific PR and belongs where you'd
+          # act on it. Unset -> posts to General.
+          TOPIC_DEVOPS: ${{ vars.TELEGRAM_TOPIC_DEVOPS }}
+          TOPIC_PRS: ${{ vars.TELEGRAM_TOPIC_PRS }}
           WF_NAME: ${{ github.event.workflow_run.name }}
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           BRANCH: ${{ github.event.workflow_run.head_branch }}
@@ -55,11 +63,21 @@ jobs:
 
           # export, not plain assignment — the python heredoc is a subprocess.
           case "$CONCLUSION" in
-            success)   export ICON="✅" ;;
-            failure)   export ICON="❌" ;;
-            cancelled) export ICON="⚪" ;;
-            *)         export ICON="⚠️" ;;
+            success)         export ICON="✅" ;;
+            failure)         export ICON="❌" ;;
+            cancelled)       export ICON="⚪" ;;
+            action_required) export ICON="⏸️" ;;
+            *)               export ICON="⚠️" ;;
           esac
+
+          # A fork PR from a first-time contributor holds CI until you approve it.
+          # Nothing else tells you that — you'd otherwise find out by wondering why
+          # a PR sat with no checks. Route it to the PR topic, where you'd act.
+          if [ "$CONCLUSION" = "action_required" ]; then
+            export TG_TOPIC="${TOPIC_PRS:-}"
+          else
+            export TG_TOPIC="${TOPIC_DEVOPS:-}"
+          fi
 
           python3 - <<'PY' > /tmp/ci_payload.json
           import html, json, os
@@ -76,8 +94,14 @@ jobs:
           subject = (os.environ.get("COMMIT_MSG") or "").splitlines()
           subject = subject[0] if subject else ""
 
-          if wf == "Publish" and concl == "success":
+          if concl == "action_required":
+              headline = "⏸️ <b>CI is waiting for your approval</b>"
+          elif wf == "Publish" and concl == "success":
               headline = "🚀 <b>Published</b> — PyPI and the MCP registry"
+          elif wf == "Test" and concl == "success":
+              # Reads as a deployment-log entry rather than a status code, since on
+              # main this is really "your push landed and the tree is healthy".
+              headline = "✅ <b>main</b> is green"
           else:
               headline = f'{os.environ["ICON"]} <b>{esc(wf, 40)}</b> {esc(concl, 20)}'
 
@@ -89,12 +113,18 @@ jobs:
               lines += ["", esc(subject, 160)]
           lines += ["", os.environ["RUN_URL"]]
 
-          print(json.dumps({
+          payload = {
               "chat_id": os.environ["TG_CHAT"],
               "text": "\n".join(lines),
               "parse_mode": "HTML",
               "disable_web_page_preview": True,
-          }))
+          }
+          # Only send message_thread_id when a topic is configured: passing it to a
+          # non-forum chat is a 400, so an unset variable must mean "omit", not "0".
+          topic = (os.environ.get("TG_TOPIC") or "").strip()
+          if topic:
+              payload["message_thread_id"] = int(topic)
+          print(json.dumps(payload))
           PY
 
           curl -sS --fail-with-body --max-time 20 \

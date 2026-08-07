@@ -96,10 +96,37 @@ async def do_read_file(
             "message": f"Canvas returned no download URL for {display_name!r}.",
         }
 
+    # Pre-signed download links are short-lived; do_read_file re-fetches metadata on every
+    # call, so a fresh link is one retry away.
+    _DOWNLOAD_HINTS = {
+        403: "The download link has expired. Call read_file again to get a fresh one.",
+        410: "The download link has expired. Call read_file again to get a fresh one.",
+        404: "The file may have been deleted from Canvas since it was listed.",
+    }
+    
     # The download URL is pre-signed and must NOT carry the Authorization header.
     async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as raw:
-        file_response = await raw.get(download_url)
-        file_response.raise_for_status()
+        try:
+            file_response = await raw.get(download_url)
+            file_response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            # Report the status, never the exception: httpx puts the failing URL in
+            # its message, and that URL's `verifier` param is a credential in its own
+            # right — anyone holding it can fetch the file without authenticating.
+            status = exc.response.status_code
+            return {
+                "error": True,
+                "status": status,
+                "message": f"Could not download {display_name!r} (HTTP {status}).",
+                "hint": _DOWNLOAD_HINTS.get(status, "This is a Canvas-side storage failure."),
+            }
+        except httpx.HTTPError:
+            return {
+                "error": True,
+                "status": 0,
+                "message": f"Could not reach Canvas file storage for {display_name!r}.",
+                "hint": "Check your network connection, then try again.",
+            }
         content = file_response.content
 
     try:
