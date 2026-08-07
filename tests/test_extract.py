@@ -147,6 +147,7 @@ async def test_read_file_reports_unsupported_type_as_structured_error():
     assert result["error"] is True
     assert "photo.png" in result["message"]
 
+
 @respx.mock
 async def test_read_file_reports_download_http_error_as_structured_error():
     respx.get(f"{API}/files/506").mock(
@@ -177,12 +178,12 @@ async def test_read_file_raw_download_omits_authorization_header():
             "url": "https://files.example.edu/507-secure",
         })
     )
-    
+
     # Capture the route so we can inspect the headers sent to it
     download_route = respx.get("https://files.example.edu/507-secure").mock(
         return_value=httpx.Response(200, content=b"Secret content")
     )
-    
+
     client = CanvasClient(CFG)
     await do_read_file(client, 507)
     await client.aclose()
@@ -190,3 +191,25 @@ async def test_read_file_raw_download_omits_authorization_header():
     assert download_route.called
     request = download_route.calls.last.request
     assert "authorization" not in request.headers
+
+
+@respx.mock
+async def test_read_file_download_error_never_echoes_the_signed_url():
+    """The download URL's verifier is a credential — it must not reach the caller."""
+    signed = f"https://files.example.edu/508?verifier={'v' * 16}"
+    respx.get(f"{API}/files/508").mock(
+        return_value=httpx.Response(200, json={
+            "id": 508, "display_name": "notes.txt", "content-type": "text/plain",
+            "url": signed,
+        })
+    )
+    respx.get(signed).mock(return_value=httpx.Response(403, text="Forbidden"))
+
+    client = CanvasClient(CFG)
+    result = await do_read_file(client, 508)
+    await client.aclose()
+
+    assert result["error"] is True
+    assert result["status"] == 403
+    assert "v" * 16 not in repr(result)
+    assert "files.example.edu" not in repr(result)
