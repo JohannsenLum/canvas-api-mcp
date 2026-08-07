@@ -7,9 +7,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.1.0] — unreleased
+## [0.0.1] — 2026-08-07
 
-First release. Student-scoped, personal use.
+First release. Student-scoped, personal use. Early software — the version
+number is deliberate.
 
 ### Added
 
@@ -53,6 +54,12 @@ First release. Student-scoped, personal use.
 - Personal use only. Canvas's API Policy requires OAuth for multi-user applications, and
   Canvas OAuth supports neither PKCE nor public clients, so locally-installed software
   cannot implement it safely. See the Compliance section of the README.
+- `canvas_request` cannot reach Canvas's GraphQL API. `_normalise_path` prefixes every
+  path with `/api/v1`, so `/api/graphql` becomes `/api/v1/graphql` and 404s. REST is
+  unaffected. Tracked in the issue tracker.
+- No `init` command yet. Setup means creating a token and editing your MCP client's
+  config by hand — see the install guide at
+  <https://mcp.johannsenlum.com/canvas-lms/install>.
 
-[Unreleased]: https://github.com/JohannsenLum/canvas-api-mcp/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/JohannsenLum/canvas-api-mcp/releases/tag/v0.1.0
+[Unreleased]: https://github.com/JohannsenLum/canvas-api-mcp/compare/v0.0.1...HEAD
+[0.0.1]: https://github.com/JohannsenLum/canvas-api-mcp/releases/tag/v0.0.1
