@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 300" width="840" height="300" role="img" aria-labelledby="t d">
   <title id="t">canvas-api-mcp</title>
-  <desc id="d">A terminal shows two questions. "What mods am I taking this sem?" is answered instantly by the curated my_courses tool, listing CS3230, CS2040S, MA2001 and GEA1000. "What groups am I in?" has no curated tool, so search_canvas_api finds GET /v1/users/self/groups among 1,116 Canvas endpoints and canvas_request executes it. 18 tools, 1,116 endpoints reachable, 146 tests, MIT licence.</desc>
+  <desc id="d">A terminal shows two questions. "What mods am I taking this sem?" is answered instantly by the curated my_courses tool, listing CS3230, CS2040S, MA2001 and GEA1000. "What groups am I in?" has no curated tool, so search_canvas_api finds GET /v1/users/self/groups among 1,116 Canvas endpoints and canvas_request executes it. 18 tools, 1,116 endpoints reachable, 149 tests, MIT licence.</desc>
 
   <style>
     .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
@@ -98,7 +98,7 @@
     <text class="mono dim" x="100" y="281" font-size="12">·</text>
     <text class="mono fg"  x="116" y="281" font-size="12">1,116 endpoints reachable</text>
     <text class="mono dim" x="300" y="281" font-size="12">·</text>
-    <text class="mono dim" x="316" y="281" font-size="12">146 tests</text>
+    <text class="mono dim" x="316" y="281" font-size="12">149 tests</text>
     <text class="mono dim" x="392" y="281" font-size="12">·</text>
     <text class="mono dim" x="408" y="281" font-size="12">MIT</text>
     <text class="mono dim" x="812" y="281" font-size="12" text-anchor="end">uvx canvas-api-mcp</text>

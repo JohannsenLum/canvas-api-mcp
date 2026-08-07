@@ -1,6 +1,6 @@
 [project]
 name = "canvas-api-mcp"
-version = "0.0.2"
+version = "0.0.3"
 description = "MCP server for Canvas LMS — student tools plus full API gateway"
 readme = "README.md"
 requires-python = ">=3.11"

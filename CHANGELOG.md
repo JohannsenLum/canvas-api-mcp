@@ -7,6 +7,73 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.0.3] — 2026-08-08
+
+Three of these are credential-handling fixes. None were exploited, and none
+required a leaked secret to have already happened — but two of them put a
+password-equivalent value somewhere it did not belong, so upgrading is worth
+doing.
+
+### Security
+
+- **Pagination no longer follows a `Link` header to another host.** The
+  `rel="next"` URL comes from the server, and every request the client sends
+  carries the `Authorization` header — so a `Link` header naming a third party
+  would have handed it your Canvas access token, which is password-equivalent.
+  `_normalise_path` already blocked this for caller-supplied paths; the guard
+  simply did not extend to pagination, the one place a URL enters the client
+  from outside. Off-origin links are now refused and reported as truncation.
+  Relative links still resolve normally.
+- **`whoami` no longer returns `calendar_feed_url`.** The `.ics` link is a bearer
+  credential — holding it is enough to read your entire Canvas calendar with no
+  authentication, and it does **not** expire when you rotate your access token.
+  `whoami` is the call-this-first orientation tool, so that value was landing in
+  conversation context, and client logs, at the start of every session. It now
+  lives behind `get_calendar_feed_url`, fetched only when asked for. (#13)
+- **`read_file` no longer echoes the signed download URL in its errors.** Canvas
+  file links carry a `verifier` query parameter that authenticates the download
+  on its own. Interpolating the raw `httpx` exception into the error message put
+  that verifier into the tool's output. Errors now report the status code and an
+  actionable hint instead. (#16, reported and fixed by @IzzaldinSamir in #25)
+
+### Added
+
+- **`get_calendar_feed_url` tool.** Returns the private `.ics` subscription link
+  you can add to Google, Apple or Outlook calendar to see Canvas deadlines
+  natively — fetched fresh per call rather than cached, so it cannot outlive a
+  token rotation, and returned with an explicit warning that it is a credential.
+  The underlying endpoint switch came from @basil-boh in #12. (#13)
+- **`canvas-api-mcp-build-catalog` console script.** Institutions run different
+  Canvas versions with different endpoints, so the bundled 1,116-endpoint catalog
+  is a sensible default rather than the truth — but regeneration lived outside the
+  wheel, so anyone who installed with `pip` or `uvx` could not run it at all.
+  `load_catalog` now resolves an explicit path, then `CANVAS_CATALOG_PATH`, then
+  `~/.cache/canvas-api-mcp/catalog.json`, then the bundled default, so running the
+  command once is enough for your school's catalog to take over. (#9)
+
+### Fixed
+
+- **A total Canvas outage is no longer reported as "nothing due".** `whats_due`
+  degrades gracefully when one source fails, which is correct — but when *every*
+  source failed it returned a clean empty list, and a student was told they had
+  nothing due when the truth was that Canvas was unreachable. It now returns an
+  explicit error with no `items` key at all, so an empty result cannot be mistaken
+  for a real answer. (#20)
+- **Transport failures produce an actionable error.** A bad `CANVAS_BASE_URL`, DNS
+  failure, refused connection or timeout raises `httpx.ConnectError` and friends,
+  none of which are `HTTPStatusError` — so they escaped as raw tracebacks. They are
+  now translated into a `CanvasError` that names `CANVAS_BASE_URL` explicitly. (#19)
+- **`read_file` returns a structured error when a download fails.** Every other
+  failure path honoured the tool's `{"error": true, ...}` contract; the raw file
+  download called `raise_for_status()` bare. Canvas file URLs are time-limited, so
+  403-on-expiry and 404-on-delete are the normal ways that call fails, not edge
+  cases. (#16, #25)
+
+### Changed
+
+- `whoami`'s output no longer contains `calendar_feed_url`. If you read that field,
+  call `get_calendar_feed_url` instead. Its `login_id` fix from 0.0.2 is unchanged.
+
 ## [0.0.2] — 2026-08-08
 
 ### Fixed

@@ -14,7 +14,7 @@ gateway that reaches every endpoint your Canvas instance exposes.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/JohannsenLum/canvas-api-mcp/main/assets/header.svg"
-       alt="Terminal. Question one: 'what mods am I taking this sem?' — answered instantly by the curated my_courses tool (CS3230, CS2040S, MA2001, GEA1000). Question two: 'what groups am I in?' — no curated tool covers it, so search_canvas_api finds GET /v1/users/self/groups among 1,116 Canvas endpoints and canvas_request executes it. 18 tools · 1,116 endpoints reachable · 146 tests · MIT."
+       alt="Terminal. Question one: 'what mods am I taking this sem?' — answered instantly by the curated my_courses tool (CS3230, CS2040S, MA2001, GEA1000). Question two: 'what groups am I in?' — no curated tool covers it, so search_canvas_api finds GET /v1/users/self/groups among 1,116 Canvas endpoints and canvas_request executes it. 18 tools · 1,116 endpoints reachable · 149 tests · MIT."
        width="840">
 </p>
 
