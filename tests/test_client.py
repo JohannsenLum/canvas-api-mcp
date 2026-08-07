@@ -59,3 +59,59 @@ async def test_non_json_response_raises_canvas_error():
         await client.request("GET", "courses")
     await client.aclose()
     assert "not valid JSON" in str(exc.value)
+
+
+# --- path normalisation -----------------------------------------------------
+# _normalise_path is the only place a caller-supplied string becomes the URL a
+# request is sent to, and canvas_request accepts arbitrary paths from a model,
+# so these cases are about containment as much as correctness.
+
+
+@pytest.mark.parametrize(
+    ("given", "expected"),
+    [
+        # shorthand expands
+        ("courses", "/api/v1/courses"),
+        ("/courses", "/api/v1/courses"),
+        ("/v1/courses", "/api/v1/courses"),
+        ("/v1", "/api/v1"),
+        # already explicit — passed through untouched
+        ("/api/v1/courses", "/api/v1/courses"),
+        ("/api/v1", "/api/v1"),
+        ("/api/graphql", "/api/graphql"),
+        ("/api", "/api"),
+        # near-misses must NOT be treated as explicit
+        ("/apifoo", "/api/v1/apifoo"),
+        ("/v1foo", "/api/v1/v1foo"),
+        # incidental whitespace and duplicate leading slashes
+        ("  /courses  ", "/api/v1/courses"),
+        ("//courses", "/api/v1/courses"),
+    ],
+)
+def test_normalise_path_resolves_expected(given, expected):
+    from canvas_api_mcp.client import _normalise_path
+
+    assert _normalise_path(given) == expected
+
+
+@pytest.mark.parametrize(
+    "hostile",
+    [
+        "https://evil.example.com/steal",   # absolute URL — would send the token elsewhere
+        "http://evil.example.com/steal",
+        "ftp://evil.example.com/steal",
+        "/api/../../../etc/passwd",         # traversal out of /api
+        "/v1/../../admin",
+        "courses\r\nX-Injected: 1",         # header smuggling
+        "courses\nHost: evil.example.com",
+        "cour\\ses",                        # backslash
+        "cour\x00ses",                      # NUL
+        "",                                 # empty
+        "   ",
+    ],
+)
+def test_normalise_path_rejects_hostile_input(hostile):
+    from canvas_api_mcp.client import CanvasError, _normalise_path
+
+    with pytest.raises(CanvasError):
+        _normalise_path(hostile)

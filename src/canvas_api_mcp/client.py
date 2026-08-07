@@ -50,16 +50,58 @@ class CanvasResponse:
 
 
 def _normalise_path(path: str) -> str:
-    """Accept any of courses, /courses, /v1/courses, /api/v1/courses."""
+    """Resolve a caller-supplied path to an absolute Canvas API path.
+
+    Shorthand is expanded; anything already under ``/api`` is passed through
+    untouched so non-versioned Canvas APIs stay reachable::
+
+        courses           -> /api/v1/courses
+        /courses          -> /api/v1/courses
+        /v1/courses       -> /api/v1/courses
+        /api/v1/courses   -> /api/v1/courses    (already explicit)
+        /api/graphql      -> /api/graphql       (GraphQL is not under /v1)
+
+    This is the single point where a caller-supplied string becomes the URL a
+    request is sent to, so it validates rather than trusts. ``canvas_request``
+    accepts arbitrary paths from a model, and a bearer token rides on every
+    request, so a path that escaped to another host or smuggled a header would
+    leak that token.
+    """
     p = path.strip()
-    if p.startswith("http://") or p.startswith("https://"):
-        raise CanvasError(0, f"Path must be relative, got a full URL: {p}")
+
+    if not p:
+        raise CanvasError(0, "Path must not be empty.")
+
+    # Absolute URLs would send the token wherever the caller chooses.
+    if "://" in p:
+        raise CanvasError(
+            0,
+            f"Path must be relative to the Canvas host, got a full URL: {path!r}. "
+            "The base URL comes from CANVAS_BASE_URL and cannot be overridden per request.",
+        )
+
+    # CR/LF would allow request-line or header smuggling; backslashes and other
+    # control characters have no legitimate place in a Canvas path.
+    if any(ord(c) < 32 or c == "\x7f" for c in p) or "\\" in p:
+        raise CanvasError(
+            0, f"Path must not contain control characters or backslashes: {path!r}"
+        )
+
     p = "/" + p.lstrip("/")
-    for prefix in ("/api/v1/", "/v1/"):
-        if p.startswith(prefix):
-            return "/api/v1/" + p[len(prefix):]
-    if p.startswith("/api/"):
-        return "/api/v1/" + p[len("/api/"):]
+
+    # `..` could climb out of /api and reach unrelated routes on the same host.
+    if ".." in p.split("/"):
+        raise CanvasError(0, f"Path must not contain '..' segments: {path!r}")
+
+    # Already explicit: /api, /api/v1/..., /api/graphql, any future /api/* surface.
+    if p == "/api" or p.startswith("/api/"):
+        return p
+
+    # Versioned shorthand: /v1/courses -> /api/v1/courses
+    if p == "/v1" or p.startswith("/v1/"):
+        return "/api" + p
+
+    # Bare shorthand: courses -> /api/v1/courses
     return "/api/v1" + p
 
 
