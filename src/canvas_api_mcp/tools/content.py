@@ -3,11 +3,13 @@
 
 from __future__ import annotations
 
+import httpx
 from fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
-from ..client import CanvasClient
+from ..client import CanvasClient, CanvasError
+from ..extract import UnsupportedFileType, extract_text
 
 READ_ONLY = dict(
     readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=True
@@ -74,6 +76,47 @@ async def do_get_page(client: CanvasClient, course_id: int, page_url: str) -> di
     }
 
 
+async def do_read_file(
+    client: CanvasClient, file_id: int, max_chars: int = 50_000
+) -> dict:
+    try:
+        meta_response = await client.request("GET", f"files/{file_id}")
+    except CanvasError as exc:
+        return {"error": True, "status": exc.status, "message": exc.message, "hint": exc.hint}
+
+    meta = meta_response.data or {}
+    download_url = meta.get("url")
+    display_name = meta.get("display_name") or f"file-{file_id}"
+    content_type = meta.get("content-type") or meta.get("content_type") or ""
+
+    if not download_url:
+        return {
+            "error": True,
+            "status": 0,
+            "message": f"Canvas returned no download URL for {display_name!r}.",
+        }
+
+    # The download URL is pre-signed and must NOT carry the Authorization header.
+    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as raw:
+        file_response = await raw.get(download_url)
+        file_response.raise_for_status()
+        content = file_response.content
+
+    try:
+        text = extract_text(content, content_type, display_name)
+    except UnsupportedFileType as exc:
+        return {"error": True, "status": 0, "message": str(exc)}
+
+    total = len(text)
+    return {
+        "display_name": display_name,
+        "content_type": content_type,
+        "text": text[:max_chars],
+        "truncated": total > max_chars,
+        "chars": total,
+    }
+
+
 def register(mcp: FastMCP, get_client) -> None:
     @mcp.tool(
         description=(
@@ -117,3 +160,18 @@ def register(mcp: FastMCP, get_client) -> None:
     ) -> dict:
         """A single course page."""
         return await do_get_page(get_client(), course_id, page_url)
+
+    @mcp.tool(
+        description=(
+            "Download a Canvas file and return its text — lecture slides, notes, "
+            "readings. Supports PDF, DOCX, PPTX, and plain text. Get file ids from "
+            "list_files or course_content. Long files are truncated to max_chars."
+        ),
+        annotations=ToolAnnotations(title="Read File", **READ_ONLY),
+    )
+    async def read_file(
+        file_id: int = Field(description="Canvas file id, from list_files"),
+        max_chars: int = Field(default=50_000, description="Truncate extracted text to this length"),
+    ) -> dict:
+        """Extract text from a course file."""
+        return await do_read_file(get_client(), file_id, max_chars=max_chars)
