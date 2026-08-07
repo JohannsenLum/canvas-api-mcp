@@ -47,6 +47,10 @@ dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "respx>=0.21"]
 
 [project.scripts]
 canvas-api-mcp = "canvas_api_mcp.server:main"
+# Regeneration must be reachable from a plain pip/uvx install, not just a source
+# checkout — different institutions run different Canvas versions, so the bundled
+# catalog is a default, not the truth. catalog.py's error message names this command.
+canvas-api-mcp-build-catalog = "canvas_api_mcp.catalog:main"
 
 [build-system]
 requires = ["hatchling"]
