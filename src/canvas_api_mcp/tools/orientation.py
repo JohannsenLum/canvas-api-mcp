@@ -8,7 +8,7 @@ from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from ..client import CanvasClient
-from ..identity import fetch_identity
+from ..identity import fetch_calendar_feed_url, fetch_identity
 
 READ_ONLY = ToolAnnotations(
     readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=True
@@ -17,6 +17,18 @@ READ_ONLY = ToolAnnotations(
 
 async def do_whoami(client: CanvasClient) -> dict:
     return await fetch_identity(client)
+
+
+async def do_get_calendar_feed_url(client: CanvasClient) -> dict:
+    return {
+        "calendar_feed_url": await fetch_calendar_feed_url(client),
+        "warning": (
+            "This URL is a bearer credential: anyone holding it can read the "
+            "user's full Canvas calendar with no authentication, and it does "
+            "not expire when the access token is rotated. Treat it like a "
+            "password — do not paste it anywhere untrusted."
+        ),
+    }
 
 
 async def do_my_courses(client: CanvasClient, state: str = "active") -> list[dict]:
@@ -45,9 +57,7 @@ def register(mcp: FastMCP, get_client) -> None:
     @mcp.tool(
         description=(
             "Identify the Canvas account this server is authenticated as, including "
-            "the user's name, their role in each course (student, ta, teacher), and "
-            "their private calendar_feed_url — an .ics link the user can subscribe to "
-            "in Google/Apple/Outlook calendar to see every Canvas deadline natively. "
+            "the user's name and their role in each course (student, ta, teacher). "
             "Call this first when you need to know what the user can access."
         ),
         annotations=ToolAnnotations(title="Who Am I", **READ_ONLY.model_dump(exclude={"title"})),
@@ -55,6 +65,24 @@ def register(mcp: FastMCP, get_client) -> None:
     async def whoami() -> dict:
         """Return the authenticated user's identity and per-course roles."""
         return await do_whoami(get_client())
+
+    @mcp.tool(
+        description=(
+            "Fetch the user's private calendar .ics subscription URL — a link they "
+            "can add to Google/Apple/Outlook calendar to see every Canvas deadline "
+            "natively. This URL is a bearer credential: whoever holds it can read the "
+            "user's full calendar with no authentication, and it survives token "
+            "rotation. Only call this when the user has explicitly asked for their "
+            "calendar feed / subscription link — do not call it as part of general "
+            "orientation, and do not repeat the URL back unless asked to."
+        ),
+        annotations=ToolAnnotations(
+            title="Get Calendar Feed URL", **READ_ONLY.model_dump(exclude={"title"})
+        ),
+    )
+    async def get_calendar_feed_url() -> dict:
+        """Return the user's calendar .ics subscription URL, fetched on demand."""
+        return await do_get_calendar_feed_url(get_client())
 
     @mcp.tool(
         description=(

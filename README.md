@@ -9,12 +9,12 @@
   real deadlines, real submission status, no copying anything across.
 </p>
 
-An MCP server for Canvas LMS. 15 curated tools for everyday student work, plus a
+An MCP server for Canvas LMS. 16 curated tools for everyday student work, plus a
 gateway that reaches every endpoint your Canvas instance exposes.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/JohannsenLum/canvas-api-mcp/main/assets/header.svg"
-       alt="Terminal. Question one: 'what mods am I taking this sem?' — answered instantly by the curated my_courses tool (CS3230, CS2040S, MA2001, GEA1000). Question two: 'what groups am I in?' — no curated tool covers it, so search_canvas_api finds GET /v1/users/self/groups among 1,116 Canvas endpoints and canvas_request executes it. 17 tools · 1,116 endpoints reachable · 120 tests · MIT."
+       alt="Terminal. Question one: 'what mods am I taking this sem?' — answered instantly by the curated my_courses tool (CS3230, CS2040S, MA2001, GEA1000). Question two: 'what groups am I in?' — no curated tool covers it, so search_canvas_api finds GET /v1/users/self/groups among 1,116 Canvas endpoints and canvas_request executes it. 18 tools · 1,116 endpoints reachable · 146 tests · MIT."
        width="840">
 </p>
 
@@ -66,7 +66,7 @@ Real prompts, and which tool answers them.
 
 The last example is the point of the gateway tools: if an endpoint exists on your
 Canvas instance, `search_canvas_api` can find it and `canvas_request` can call it,
-even though only 15 tools are hand-curated.
+even though only 16 tools are hand-curated.
 
 ## Install
 
@@ -294,7 +294,8 @@ Servers → Edit raw config**:
 
 | Tool | What it does |
 |---|---|
-| `whoami` | Identity, your role in each course, and your calendar feed link |
+| `whoami` | Identity and your role in each course |
+| `get_calendar_feed_url` | Your private calendar `.ics` link — only when you ask for it |
 | `my_courses` | Active courses with code, term, role |
 | `whats_due` | Everything due, soonest first |
 | `my_grades` | Current score per course |

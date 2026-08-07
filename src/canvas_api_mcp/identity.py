@@ -49,7 +49,20 @@ async def fetch_identity(client: CanvasClient) -> dict:
         "id": profile.get("id"),
         "name": profile.get("name"),
         "login_id": profile.get("login_id"),
-        "calendar_feed_url": (profile.get("calendar") or {}).get("ics"),
         "roles_by_course": roles_by_course,
     }
     return _cache
+
+
+async def fetch_calendar_feed_url(client: CanvasClient) -> str | None:
+    """Fetch the user's calendar .ics subscription URL on its own.
+
+    Deliberately not folded into fetch_identity's cached payload: the URL is a
+    bearer credential (the token lives in the path, so holding it is enough to
+    read the calendar with no auth), and fetch_identity backs whoami, which is
+    called unconditionally at the start of every session. Fetched fresh each
+    time rather than cached, so a caller always gets an on-demand read rather
+    than a value that silently outlives a token rotation.
+    """
+    profile = (await client.request("GET", "users/self/profile")).data or {}
+    return (profile.get("calendar") or {}).get("ics")
