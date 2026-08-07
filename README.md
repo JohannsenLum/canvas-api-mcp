@@ -305,7 +305,7 @@ Servers → Edit raw config**:
 
 | Tool | What it does |
 |---|---|
-| `whoami` | Identity and your role in each course |
+| `whoami` | Identity, your role in each course, and your calendar feed link |
 | `my_courses` | Active courses with code, term, role |
 | `whats_due` | Everything due, soonest first |
 | `my_grades` | Current score per course |
