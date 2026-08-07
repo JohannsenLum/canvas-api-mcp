@@ -1,5 +1,11 @@
 <!-- mcp-name: io.github.JohannsenLum/canvas-api-mcp -->
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/JohannsenLum/canvas-api-mcp/main/assets/header.svg"
+       alt="Terminal: asking 'what groups am I in?' — no curated tool covers it, so search_canvas_api finds GET /v1/users/self/groups among 1,116 Canvas endpoints and canvas_request executes it. 17 tools · 1,116 endpoints · 120 tests · MIT."
+       width="840">
+</p>
+
 # canvas-api-mcp
 
 An MCP server for Canvas LMS. 15 curated tools for everyday student work, plus a
@@ -11,11 +17,11 @@ gateway that reaches every endpoint your Canvas instance exposes.
 [skills](https://mcp.johannsenlum.com/canvas-lms/skills) ·
 [compliance](https://mcp.johannsenlum.com/canvas-lms/compliance)
 
+[![PyPI](https://img.shields.io/pypi/v/canvas-api-mcp)](https://pypi.org/project/canvas-api-mcp/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/JohannsenLum/canvas-api-mcp/blob/main/LICENSE)
+[![MCP Registry](https://img.shields.io/badge/MCP_Registry-io.github.JohannsenLum%2Fcanvas--api--mcp-1f6feb)](https://registry.modelcontextprotocol.io)
 [![GitHub stars](https://img.shields.io/github/stars/JohannsenLum/canvas-api-mcp?style=social)](https://github.com/JohannsenLum/canvas-api-mcp)
-<!-- Once canvas-api-mcp is published to PyPI, add and verify it renders green (not a 404 "not found" badge):
-[![PyPI](https://img.shields.io/pypi/v/canvas-api-mcp)](https://pypi.org/project/canvas-api-mcp/) -->
 
 > **Personal-use software.** Canvas's API Policy requires OAuth for applications used
 > by multiple people, and Canvas OAuth cannot be implemented safely by locally

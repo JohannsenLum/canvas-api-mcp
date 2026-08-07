@@ -19,3 +19,7 @@ build/
 # Vercel — CLI project link AND project-local auth store
 .vercel
 .vercel-auth/
+
+# coverage output
+.coverage
+htmlcov/

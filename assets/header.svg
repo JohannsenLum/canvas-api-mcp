@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 280" width="840" height="280" role="img" aria-labelledby="t d">
+  <title id="t">canvas-api-mcp</title>
+  <desc id="d">A terminal shows the question "what groups am I in?". No curated tool covers it, so search_canvas_api finds GET /v1/users/self/groups in a catalog of 1,116 Canvas endpoints and canvas_request executes it. 17 tools, 1,116 endpoints, 120 tests, MIT licence.</desc>
+
+  <style>
+    .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+    .win  { fill: #0d1117; }
+    .bar  { fill: #161b22; }
+    .edge { stroke: #30363d; stroke-width: 1; fill: none; }
+    .dim  { fill: #7d8590; }
+    .fg   { fill: #e6edf3; }
+    .acc  { fill: #2f81f7; }
+    .ok   { fill: #3fb950; }
+    .warn { fill: #d29922; }
+
+    /* Each line wipes in left-to-right, then the whole thing resets. */
+    .line { opacity: 0; animation: show 13s infinite; }
+    @keyframes show { 0%,4% { opacity: 0 } 6%,92% { opacity: 1 } 97%,100% { opacity: 0 } }
+
+    .l1 { animation-delay: 0.0s }
+    .l2 { animation-delay: 1.4s }
+    .l3 { animation-delay: 2.6s }
+    .l4 { animation-delay: 3.6s }
+    .l5 { animation-delay: 5.0s }
+    .l6 { animation-delay: 6.0s }
+    .l7 { animation-delay: 7.4s }
+
+    /* Typing wipe for the prompt line only. */
+    .type { animation: wipe 13s infinite steps(24); }
+    @keyframes wipe { 0% { width: 0 } 8% { width: 300px } 100% { width: 300px } }
+
+    .caret { animation: blink 1s steps(1) infinite; }
+    @keyframes blink { 0%,50% { opacity: 1 } 51%,100% { opacity: 0 } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .line { opacity: 1; animation: none }
+      .caret { animation: none; opacity: 0 }
+    }
+  </style>
+
+  <!-- window -->
+  <rect class="win" x="0.5" y="0.5" width="839" height="279" rx="10"/>
+  <rect class="bar" x="0.5" y="0.5" width="839" height="34" rx="10"/>
+  <rect class="bar" x="0.5" y="24" width="839" height="12"/>
+  <rect class="edge" x="0.5" y="0.5" width="839" height="279" rx="10"/>
+  <line class="edge" x1="0.5" y1="35" x2="839.5" y2="35"/>
+
+  <circle cx="22" cy="18" r="5.5" fill="#ff5f57"/>
+  <circle cx="42" cy="18" r="5.5" fill="#febc2e"/>
+  <circle cx="62" cy="18" r="5.5" fill="#28c840"/>
+  <text class="mono dim" x="420" y="22" font-size="12" text-anchor="middle">canvas-api-mcp</text>
+
+  <!-- prompt -->
+  <g class="line l1">
+    <text class="mono ok"  x="28" y="76" font-size="15">❯</text>
+    <text class="mono fg"  x="48" y="76" font-size="15">what groups am I in?</text>
+    <rect class="caret" x="243" y="63" width="8" height="17" fill="#e6edf3"/>
+  </g>
+
+  <!-- no curated tool -->
+  <g class="line l2">
+    <text class="mono warn" x="28" y="106" font-size="13">no curated tool covers this — searching 1,116 endpoints…</text>
+  </g>
+
+  <!-- layer 2 -->
+  <g class="line l3">
+    <text class="mono acc" x="28" y="140" font-size="14">search_canvas_api</text>
+    <text class="mono dim" x="168" y="140" font-size="14">("my group memberships")</text>
+  </g>
+  <g class="line l4">
+    <text class="mono ok"  x="48" y="164" font-size="13">GET</text>
+    <text class="mono fg"  x="82" y="164" font-size="13">/v1/users/self/groups</text>
+    <text class="mono dim" x="272" y="164" font-size="13">List your groups</text>
+  </g>
+
+  <!-- layer 3 -->
+  <g class="line l5">
+    <text class="mono acc" x="28" y="198" font-size="14">canvas_request</text>
+    <text class="mono dim" x="145" y="198" font-size="14">("GET", "/v1/users/self/groups")</text>
+  </g>
+  <g class="line l6">
+    <text class="mono ok"  x="48" y="222" font-size="13">→ 200</text>
+    <text class="mono dim" x="102" y="222" font-size="13">canvas.instructure.com/api/v1/users/self/groups</text>
+  </g>
+
+  <!-- footer -->
+  <g class="line l7">
+    <line class="edge" x1="28" y1="242" x2="812" y2="242"/>
+    <text class="mono dim" x="28" y="263" font-size="12">17 tools</text>
+    <text class="mono dim" x="96" y="263" font-size="12">·</text>
+    <text class="mono fg"  x="110" y="263" font-size="12">1,116 endpoints reachable</text>
+    <text class="mono dim" x="288" y="263" font-size="12">·</text>
+    <text class="mono dim" x="302" y="263" font-size="12">120 tests</text>
+    <text class="mono dim" x="376" y="263" font-size="12">·</text>
+    <text class="mono dim" x="390" y="263" font-size="12">MIT</text>
+    <text class="mono dim" x="812" y="263" font-size="12" text-anchor="end">uvx canvas-api-mcp</text>
+  </g>
+</svg>
