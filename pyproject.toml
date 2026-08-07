@@ -5,6 +5,28 @@ description = "MCP server for Canvas LMS — student tools plus full API gateway
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
+keywords = [
+    "mcp",
+    "model-context-protocol",
+    "canvas",
+    "canvas-lms",
+    "lms",
+    "education",
+    "ai-assistant",
+    "claude",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Education",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
 dependencies = [
     "fastmcp>=3.0",
     "httpx>=0.27",
@@ -13,6 +35,12 @@ dependencies = [
     "python-pptx>=0.6",
     "python-docx>=1.1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/JohannsenLum/canvas-api-mcp"
+Repository = "https://github.com/JohannsenLum/canvas-api-mcp"
+Issues = "https://github.com/JohannsenLum/canvas-api-mcp/issues"
+Changelog = "https://github.com/JohannsenLum/canvas-api-mcp/releases"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "respx>=0.21"]
@@ -26,6 +54,26 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/canvas_api_mcp"]
+
+# data/ lives at the repo root, outside src/, so hatchling's default
+# src-layout package scan never sees it. force-include maps it into
+# canvas_api_mcp/data/ inside the built wheel so that, once installed,
+# canvas_api_mcp/data/catalog.json sits alongside canvas_api_mcp/__init__.py.
+# catalog.py's DEFAULT_CATALOG checks that installed location first and
+# falls back to the repo-root data/ path for source checkouts, since the
+# correct relative path differs between the two (see catalog.py).
+#
+# `uv build` builds the wheel FROM the sdist (two-stage), so the sdist
+# must ship data/ at its original "data/..." path (hatchling's default
+# VCS-based sdist file selection already does this — data/catalog.json
+# is git-tracked) for this wheel-side force-include to find "data" as
+# its source when the second stage runs. Do NOT also force-include on
+# the sdist target: that would rename data/ to canvas_api_mcp/data/
+# inside the sdist itself, and the wheel-build stage would then fail
+# with "Forced include not found: .../data" because "data" no longer
+# exists at the sdist root.
+[tool.hatch.build.targets.wheel.force-include]
+"data" = "canvas_api_mcp/data"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

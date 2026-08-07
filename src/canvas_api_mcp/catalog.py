@@ -7,7 +7,23 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
-DEFAULT_CATALOG = Path(__file__).resolve().parents[2] / "data" / "catalog.json"
+def _default_catalog_path() -> Path:
+    """Locate data/catalog.json in either of the two layouts it can be in.
+
+    - Installed from a wheel: hatchling's force-include config packages it
+      at canvas_api_mcp/data/catalog.json, right next to this file.
+    - Running from a source checkout (editable install, `uv run`, etc.):
+      it lives at the repo root's data/catalog.json, outside src/, since
+      force-include only rewrites the built artifact, not the source tree.
+    """
+    here = Path(__file__).resolve()
+    installed = here.parent / "data" / "catalog.json"
+    if installed.exists():
+        return installed
+    return here.parents[2] / "data" / "catalog.json"
+
+
+DEFAULT_CATALOG = _default_catalog_path()
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 

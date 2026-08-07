@@ -1,0 +1,35 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: pytest (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      # CANVAS_LIVE_TESTS is intentionally NOT set: the 5 live tests in
+      # tests/test_live.py hit a real Canvas instance and must stay
+      # skipped in CI. They only run locally / on demand with a real
+      # CANVAS_BASE_URL + CANVAS_TOKEN exported.
+      - name: Run tests
+        run: uv run pytest -v

@@ -1,3 +1,5 @@
+<!-- mcp-name: io.github.JohannsenLum/canvas-api-mcp -->
+
 # canvas-api-mcp
 
 An MCP server for Canvas LMS. 15 curated tools for everyday student work, plus a

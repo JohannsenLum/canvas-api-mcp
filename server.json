@@ -1,0 +1,45 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.JohannsenLum/canvas-api-mcp",
+  "title": "Canvas API MCP",
+  "description": "MCP server exposing the Canvas LMS REST API (1,116 endpoints) for AI assistants",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/JohannsenLum/canvas-api-mcp",
+    "source": "github",
+    "id": "1326456614"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "canvas-api-mcp",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "CANVAS_BASE_URL",
+          "description": "Base URL of your Canvas LMS instance, e.g. https://yourschool.instructure.com",
+          "isRequired": true,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "CANVAS_TOKEN",
+          "description": "Canvas API access token (Canvas: Account > Settings > New Access Token)",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "CANVAS_MAX_PAGES",
+          "description": "Optional cap on the number of pages fetched per paginated Canvas API call",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "number"
+        }
+      ]
+    }
+  ]
+}

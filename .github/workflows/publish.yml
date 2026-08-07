@@ -1,0 +1,125 @@
+name: Publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------
+  # 1) Build + publish canvas-api-mcp to PyPI via Trusted Publishing.
+  #    environment name MUST be "pypi" to match the Trusted Publisher
+  #    config (project=canvas-api-mcp, owner=JohannsenLum,
+  #    repo=canvas-api-mcp, workflow=publish.yml, environment=pypi).
+  #    No API token is used: id-token: write lets the runner mint a
+  #    short-lived OIDC token that PyPI exchanges for a publish token.
+  # ---------------------------------------------------------------------
+  publish-pypi:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Run tests
+        run: uv run pytest -q
+
+      - name: Read version from pyproject.toml
+        id: ver
+        run: |
+          VERSION=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build sdist and wheel
+        run: uv build
+        # -> dist/canvas_api_mcp-<version>-py3-none-any.whl
+        #    dist/canvas_api_mcp-<version>.tar.gz
+
+      - name: Verify catalog.json landed in the wheel
+        run: |
+          python3 -m zipfile -l dist/*.whl | grep -E "canvas_api_mcp/data/catalog\.json" \
+            || (echo "::error::catalog.json missing from wheel" && exit 1)
+
+      - name: Publish to PyPI
+        # Pinned to the exact commit behind the v1.14.2 tag (2026-07-29),
+        # not a movable tag/branch. Verified via:
+        #   gh api repos/pypa/gh-action-pypi-publish/git/refs/tags/v1.14.2
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          verbose: true
+
+  # ---------------------------------------------------------------------
+  # 2) Publish server.json to the official MCP Registry via mcp-publisher
+  #    using GitHub OIDC (no stored secret). Runs only after the PyPI
+  #    publish succeeds, because the registry's PyPI-ownership check
+  #    reads the live PyPI project page.
+  # ---------------------------------------------------------------------
+  publish-mcp-registry:
+    name: Publish to MCP Registry
+    needs: publish-pypi
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      PACKAGE_VERSION: ${{ needs.publish-pypi.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+
+      # PyPI's simple index / JSON API can lag a few seconds behind
+      # gh-action-pypi-publish returning success. mcp-publisher's PyPI
+      # ownership check reads the README from pypi.org, so poll until
+      # the just-published version is actually resolvable.
+      - name: Wait for canvas-api-mcp on PyPI
+        run: |
+          for i in $(seq 1 10); do
+            if curl -fsS "https://pypi.org/pypi/canvas-api-mcp/${PACKAGE_VERSION}/json" >/dev/null; then
+              echo "canvas-api-mcp ${PACKAGE_VERSION} is live on PyPI"
+              exit 0
+            fi
+            echo "not visible yet, retrying in 15s ($i/10)..."
+            sleep 15
+          done
+          echo "::error::canvas-api-mcp ${PACKAGE_VERSION} never became resolvable on PyPI"
+          exit 1
+
+      - name: Sync server.json version with the published release
+        run: |
+          jq --arg v "$PACKAGE_VERSION" \
+             '.version = $v | .packages[0].version = $v' \
+             server.json > server.tmp.json
+          mv server.tmp.json server.json
+
+      # Official release tarball, pinned to v1.8.1 (linux_amd64 matches
+      # ubuntu-latest). Verified via:
+      #   gh api repos/modelcontextprotocol/registry/releases/tags/v1.8.1
+      - name: Install mcp-publisher v1.8.1
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz" \
+            | tar xz mcp-publisher
+          ./mcp-publisher --help >/dev/null
+
+      - name: Authenticate to MCP Registry via GitHub OIDC
+        run: ./mcp-publisher login github-oidc
+
+      - name: Validate server.json
+        run: ./mcp-publisher validate server.json
+
+      - name: Publish server to MCP Registry
+        run: ./mcp-publisher publish
