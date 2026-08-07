@@ -299,11 +299,16 @@ so every teacher call returns 403. Coverage is therefore split:
 
 ## Risks
 
-**Institutions may disable student token generation.** Unverified at NUS at time of
-writing; requires checking `https://canvas.nus.edu.sg/profile/settings` for a
-`+ New Access Token` button. If unavailable, no bearer-token design works and the fallback
-is browser automation driving an authenticated session — substantially worse, and out of
-scope for this spec.
+**Institutions may disable student token generation.** Confirmed **available** at NUS on
+2026-08-07 — `+ New access token` is present under Approved Integrations for a student
+account, so the bearer-token design is viable on the first target instance. This remains a
+risk at other institutions: where token generation is disabled, no bearer-token design
+works and the only fallback is browser automation driving an authenticated session —
+substantially worse, and out of scope for this spec. The README must state this
+prerequisite plainly so prospective users can check before installing.
+
+Canvas allows an optional expiry when minting a token. The README should recommend setting
+a term-length expiry rather than accepting "never", to bound the blast radius of a leak.
 
 **A Canvas token is equivalent to full account access.** It can read grades and private
 instructor messages and submit work. It is stored in plaintext in the MCP client config
