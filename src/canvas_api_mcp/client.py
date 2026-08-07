@@ -14,6 +14,17 @@ import httpx
 
 from .config import Config
 
+RATE_LIMIT_MARKER = "rate limit exceeded"
+
+
+def _is_rate_limited(response: httpx.Response) -> bool:
+    """Canvas signals throttling with a 403 whose body names the rate limit."""
+    if response.status_code == 429:
+        return True
+    if response.status_code != 403:
+        return False
+    return RATE_LIMIT_MARKER in response.text.lower()
+
 
 class CanvasError(Exception):
     """A Canvas API failure, translated into something actionable."""
@@ -86,6 +97,72 @@ class CanvasClient:
     async def aclose(self) -> None:
         await self._client.aclose()
 
+    @staticmethod
+    def _canvas_message(response: httpx.Response) -> str:
+        try:
+            body = response.json()
+        except Exception:
+            return response.text.strip()[:300]
+        if isinstance(body, dict):
+            errors = body.get("errors")
+            if isinstance(errors, list) and errors:
+                first = errors[0]
+                if isinstance(first, dict) and "message" in first:
+                    return str(first["message"])
+            if isinstance(errors, dict) and "message" in errors:
+                return str(errors["message"])
+            for key in ("message", "error", "status"):
+                if key in body:
+                    return str(body[key])
+        return response.text.strip()[:300]
+
+    def _raise_for_status(self, response: httpx.Response) -> None:
+        status = response.status_code
+        if status < 400:
+            return
+
+        detail = self._canvas_message(response)
+
+        if _is_rate_limited(response):
+            raise CanvasError(
+                status,
+                "Canvas rate limit exceeded.",
+                "The client throttles automatically; this means the account's quota "
+                "is exhausted. Wait a minute before retrying.",
+            )
+
+        if status == 401:
+            raise CanvasError(
+                status,
+                f"Canvas rejected the access token ({detail}).",
+                "The token is missing, invalid, or expired. Generate a new one at "
+                "<your-canvas>/profile/settings -> Approved Integrations -> "
+                "'+ New access token', then update CANVAS_TOKEN in your MCP client config.",
+            )
+
+        if status == 403:
+            raise CanvasError(
+                status,
+                f"Canvas denied permission for this request ({detail}).",
+                "Your account does not have rights to this resource. Educator and "
+                "admin endpoints require a teacher or admin enrolment.",
+            )
+
+        if status == 404:
+            raise CanvasError(
+                status,
+                f"Canvas returned not found ({detail}).",
+                "The resource does not exist, is not visible to your account, or the "
+                "feature is not enabled at this institution.",
+            )
+
+        if 500 <= status < 600:
+            raise CanvasError(
+                status, f"Canvas server error ({detail}).", "This is a Canvas-side failure."
+            )
+
+        raise CanvasError(status, f"Canvas request failed ({detail}).")
+
     async def request(
         self,
         method: str,
@@ -105,6 +182,7 @@ class CanvasClient:
             response = await self._client.request(
                 method.upper(), url, params=query, json=json
             )
+            self._raise_for_status(response)
             payload = self._parse(response)
             pages += 1
 
