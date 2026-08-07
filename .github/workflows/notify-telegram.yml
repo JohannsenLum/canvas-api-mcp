@@ -1,23 +1,30 @@
 name: Notify Telegram
 
-# Routes GitHub activity into three Telegram forum topics: Pull Requests, Reviews
-# and Issues.
+# Routes GitHub activity into Telegram forum topics, split by what you would DO
+# about each thing rather than by which GitHub object it happens to be.
+#
+#   GH PR Opened     PR opened/reopened/ready · PR closed without merging
+#   GH PR Comments   comments on a pull request
+#   GH Reviews       review submitted (approved / changes requested) · code comments
+#   GH Issues        issue opened/reopened/closed · comments on an issue
+#   Dev Ops          PR MERGED — see below
+#
+# A merged PR is routed to Dev Ops, not to a PR topic, because merging is what
+# puts code on main. Sitting next to the green/red that follows it, the two read
+# as one entry: "this landed, and the tree is fine."
 #
 # ─────────────────────────────────────────────────────────────────────────────
-# ROUTING — the non-obvious part.
+# ROUTING — the two traps.
 #
-# GitHub has no "PR comment" event. A comment on a pull request arrives as
-# `issue_comment`, exactly like a comment on an issue, because PRs are issues
-# underneath. Routing on event name alone would therefore scatter every PR
-# discussion into the Issues topic. `github.event.issue.pull_request` is non-null
-# only for PR comments, and is how the two are told apart below.
+# 1. GitHub has no "PR comment" event. A comment on a pull request arrives as
+#    `issue_comment`, exactly like a comment on an issue, because PRs are issues
+#    underneath. Routing on event name alone scatters every PR discussion into
+#    the Issues topic. `github.event.issue.pull_request` is non-null only for PR
+#    comments, and is how the two are told apart below.
 #
-# The goal is that one conversation lives in one topic: a PR, its comments and
-# its review threads should not need cross-referencing across three chats.
-#
-#   Pull Requests   PR opened/reopened/ready · comments on a PR
-#   Reviews         review submitted (approved / changes requested) · code comments
-#   Issues          issue opened/reopened · comments on an issue
+# 2. Merged and abandoned PRs both arrive as `closed`. Only
+#    `github.event.pull_request.merged` distinguishes shipping from giving up —
+#    without it the channel congratulates you for PRs you rejected.
 #
 # ─────────────────────────────────────────────────────────────────────────────
 # SECURITY — read before editing.
@@ -74,7 +81,11 @@ jobs:
           # Forum topics are variables rather than secrets: the ids are small
           # integers that mean nothing without the chat, and keeping them editable
           # in the UI means re-creating a topic doesn't need a commit.
-          TOPIC_PRS: ${{ vars.TELEGRAM_TOPIC_PRS }}
+          TOPIC_PR_OPENED: ${{ vars.TELEGRAM_TOPIC_PR_OPENED }}
+          TOPIC_PR_COMMENTS: ${{ vars.TELEGRAM_TOPIC_PR_COMMENTS }}
+          # A merged PR is a deployment event, so it goes to Dev Ops rather than
+          # a PR topic — see the pull_request_target branch below.
+          TOPIC_DEVOPS: ${{ vars.TELEGRAM_TOPIC_DEVOPS }}
           TOPIC_REVIEWS: ${{ vars.TELEGRAM_TOPIC_REVIEWS }}
           TOPIC_ISSUES: ${{ vars.TELEGRAM_TOPIC_ISSUES }}
           # Everything below is untrusted input — env, never inline interpolation.
@@ -116,23 +127,27 @@ jobs:
               fi
               ;;
             pull_request_target)
-              export TG_TOPIC="${TOPIC_PRS:-}" LINK="$URL"
+              export LINK="$URL"
               if [ "$ACTION" = "closed" ]; then
-                # Merged and abandoned both arrive as `closed`; they mean opposite things.
+                # Merged and abandoned both arrive as `closed`, and they mean opposite
+                # things. A merge is what puts code on main, so it belongs in Dev Ops
+                # next to the green/red that follows it — read together they say "this
+                # landed and the tree is fine". An abandoned PR shipped nothing, so it
+                # stays with the rest of the PR lifecycle.
                 if [ "$MERGED" = "true" ]; then
-                  export ICON="🎉" WHAT="merged a pull request"
+                  export ICON="🎉" WHAT="merged a pull request" TG_TOPIC="${TOPIC_DEVOPS:-}"
                 else
-                  export ICON="🚫" WHAT="closed a pull request without merging"
+                  export ICON="🚫" WHAT="closed a pull request without merging" TG_TOPIC="${TOPIC_PR_OPENED:-}"
                 fi
               else
-                export ICON="🔀" WHAT="opened a pull request"
+                export ICON="🔀" WHAT="opened a pull request" TG_TOPIC="${TOPIC_PR_OPENED:-}"
               fi
               ;;
             issue_comment)
               export LINK="$COMMENT_URL"
               export BODY="$(printf '%s' "$COMMENT" | head -c 300)"
               if [ "$COMMENT_ON_PR" = "true" ]; then
-                export ICON="💬" WHAT="commented on a pull request" TG_TOPIC="${TOPIC_PRS:-}"
+                export ICON="💬" WHAT="commented on a pull request" TG_TOPIC="${TOPIC_PR_COMMENTS:-}"
               else
                 export ICON="💬" WHAT="commented on an issue" TG_TOPIC="${TOPIC_ISSUES:-}"
               fi

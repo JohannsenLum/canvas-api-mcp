@@ -43,9 +43,10 @@ jobs:
           TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
           # Deployment/CI noise goes to Dev Ops. The one exception is "CI is waiting
           # for your approval", which is about a specific PR and belongs where you'd
-          # act on it. Unset -> posts to General.
+          # act on it — it gets its own topic because it is rare, silently blocking,
+# and has no other symptom. Unset -> posts to General.
           TOPIC_DEVOPS: ${{ vars.TELEGRAM_TOPIC_DEVOPS }}
-          TOPIC_PRS: ${{ vars.TELEGRAM_TOPIC_PRS }}
+          TOPIC_APPROVALS: ${{ vars.TELEGRAM_TOPIC_APPROVALS }}
           WF_NAME: ${{ github.event.workflow_run.name }}
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           BRANCH: ${{ github.event.workflow_run.head_branch }}
@@ -74,7 +75,7 @@ jobs:
           # Nothing else tells you that — you'd otherwise find out by wondering why
           # a PR sat with no checks. Route it to the PR topic, where you'd act.
           if [ "$CONCLUSION" = "action_required" ]; then
-            export TG_TOPIC="${TOPIC_PRS:-}"
+            export TG_TOPIC="${TOPIC_APPROVALS:-}"
           else
             export TG_TOPIC="${TOPIC_DEVOPS:-}"
           fi
