@@ -193,7 +193,7 @@ Write tools marked ✏️. All endpoint mappings verified against the catalog ex
 
 | Tool | Endpoints |
 |---|---|
-| `whoami` | `GET /v1/users/{id}`, `GET /v1/users/{user_id}/enrollments` |
+| `whoami` | `GET /v1/users/self/profile`, `GET /v1/users/{user_id}/enrollments` |
 | `my_courses` | `GET /v1/courses` |
 
 ### Student (7)

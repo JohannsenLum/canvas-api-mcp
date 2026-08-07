@@ -7,6 +7,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `whoami` now returns `calendar_feed_url` — the user's private Canvas calendar .ics
+  link, so the user can subscribe to every Canvas deadline in Google/Apple/Outlook
+  calendar directly, without any further tool calls.
+
+### Fixed
+
+- `whoami`'s `login_id` was always `None` in production. `identity.py` fetched
+  `GET /users/self`, which does not carry `login_id` on this Canvas deployment; only
+  `GET /users/self/profile` does. Switching to `/profile` fixes `login_id` and is also
+  where `calendar_feed_url` (above) comes from.
+
 ## [0.0.1] — 2026-08-07
 
 First release. Student-scoped, personal use. Early software — the version

@@ -31,7 +31,7 @@ async def fetch_identity(client: CanvasClient) -> dict:
     if _cache is not None:
         return _cache
 
-    profile = (await client.request("GET", "users/self")).data or {}
+    profile = (await client.request("GET", "users/self/profile")).data or {}
     enrolments = (await client.request("GET", "users/self/enrollments")).data or []
 
     roles_by_course: dict[int, list[str]] = {}
@@ -49,6 +49,7 @@ async def fetch_identity(client: CanvasClient) -> dict:
         "id": profile.get("id"),
         "name": profile.get("name"),
         "login_id": profile.get("login_id"),
+        "calendar_feed_url": (profile.get("calendar") or {}).get("ics"),
         "roles_by_course": roles_by_course,
     }
     return _cache

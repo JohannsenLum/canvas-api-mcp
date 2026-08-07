@@ -9,7 +9,12 @@ from canvas_api_mcp.tools.orientation import do_my_courses, do_whoami
 
 CFG = Config(base_url="https://canvas.example.edu", token="tok", max_pages=10)
 
-SELF = {"id": 42, "name": "Jo Tan", "login_id": "e0123456"}
+SELF = {
+    "id": 42,
+    "name": "Jo Tan",
+    "login_id": "e0123456",
+    "calendar": {"ics": "https://canvas.example.edu/feeds/calendars/user_abc123.ics"},
+}
 ENROLMENTS = [
     {"course_id": 101, "type": "StudentEnrollment"},
     {"course_id": 202, "type": "TaEnrollment"},
@@ -24,9 +29,9 @@ COURSES = [
 ]
 
 
-def _mock_identity():
-    respx.get("https://canvas.example.edu/api/v1/users/self").mock(
-        return_value=httpx.Response(200, json=SELF)
+def _mock_identity(self_profile=None):
+    respx.get("https://canvas.example.edu/api/v1/users/self/profile").mock(
+        return_value=httpx.Response(200, json=self_profile if self_profile is not None else SELF)
     )
     respx.get("https://canvas.example.edu/api/v1/users/self/enrollments").mock(
         return_value=httpx.Response(200, json=ENROLMENTS)
@@ -48,9 +53,37 @@ async def test_whoami_reports_name_and_per_course_roles():
 
 
 @respx.mock
+async def test_whoami_reports_login_id_and_calendar_feed_url():
+    """Both fields live only on the /profile response, not plain /users/self —
+    a prior version of this code called /users/self and login_id silently
+    read as None in production."""
+    identity.clear_cache()
+    _mock_identity()
+    client = CanvasClient(CFG)
+    result = await do_whoami(client)
+    await client.aclose()
+
+    assert result["login_id"] == "e0123456"
+    assert result["calendar_feed_url"] == (
+        "https://canvas.example.edu/feeds/calendars/user_abc123.ics"
+    )
+
+
+@respx.mock
+async def test_whoami_calendar_feed_url_is_none_when_absent():
+    identity.clear_cache()
+    _mock_identity(self_profile={"id": 42, "name": "Jo Tan"})
+    client = CanvasClient(CFG)
+    result = await do_whoami(client)
+    await client.aclose()
+
+    assert result["calendar_feed_url"] is None
+
+
+@respx.mock
 async def test_identity_is_cached_across_calls():
     identity.clear_cache()
-    route = respx.get("https://canvas.example.edu/api/v1/users/self").mock(
+    route = respx.get("https://canvas.example.edu/api/v1/users/self/profile").mock(
         return_value=httpx.Response(200, json=SELF)
     )
     respx.get("https://canvas.example.edu/api/v1/users/self/enrollments").mock(
