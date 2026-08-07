@@ -107,6 +107,21 @@ async def _safe_fetch(client: CanvasClient, path: str, warnings: list[str]) -> l
     return data if isinstance(data, list) else []
 
 
+def _parse_due(value: str | None) -> datetime | None:
+    """Parse a Canvas ISO-8601 timestamp. Returns None for missing or malformed values.
+
+    Canvas emits a trailing 'Z'; fromisoformat only learned to accept that in 3.11,
+    and a bad value must never take down the whole result.
+    """
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
 async def do_whats_due(client: CanvasClient, days: int = 14) -> dict[str, Any]:
     warnings: list[str] = []
     todo = await _safe_fetch(client, "users/self/todo", warnings)
@@ -131,7 +146,27 @@ async def do_whats_due(client: CanvasClient, days: int = 14) -> dict[str, Any]:
     for item in ordered:
         item.pop("_key", None)
 
-    return {"items": ordered, "days": days, "warnings": warnings}
+    # Canvas decides its own horizons for /todo, /upcoming_events and /planner/items,
+    # and they do not agree with each other or with the caller's request. Honour `days`
+    # here so the promise in the tool signature actually holds.
+    horizon = datetime.now(timezone.utc) + timedelta(days=days)
+    within, undated = [], []
+    for item in ordered:
+        due = _parse_due(item.get("due_at"))
+        if due is None:
+            # Keep undated work — a to-do with no due date is still outstanding, and
+            # dropping it would hide real tasks. Flagged so callers can tell them apart.
+            item["undated"] = True
+            undated.append(item)
+        elif due <= horizon:
+            within.append(item)
+
+    return {
+        "items": within + undated,
+        "days": days,
+        "horizon": horizon.isoformat(),
+        "warnings": warnings,
+    }
 
 
 async def do_my_grades(client: CanvasClient, course_id: int | None = None) -> list[dict]:

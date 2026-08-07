@@ -186,3 +186,94 @@ async def test_planner_assignment_dedupes_against_todo():
     await client.aclose()
 
     assert sum(1 for i in result["items"] if i["title"] == "Problem Set 3") == 1
+
+
+# --- the `days` horizon (issue #11) --------------------------------------------
+# whats_due accepted `days`, echoed it back, and filtered nothing. Canvas applies
+# its own horizons to /todo, /upcoming_events and /planner/items, and they neither
+# agree with each other nor with what the caller asked for.
+
+
+def _todo(name, due, ident):
+    return {
+        "type": "submitting",
+        "assignment": {
+            "id": ident, "name": name, "due_at": due,
+            "course_id": 101, "html_url": f"https://c/{ident}",
+        },
+    }
+
+
+@respx.mock
+async def test_days_horizon_excludes_items_beyond_it():
+    respx.get("https://canvas.example.edu/api/v1/users/self/todo").mock(
+        return_value=httpx.Response(200, json=[
+            _todo("Due tomorrow", "2026-08-09T00:00:00Z", 1),
+            _todo("Far future", "2027-08-08T00:00:00Z", 2),
+        ])
+    )
+    respx.get("https://canvas.example.edu/api/v1/users/self/upcoming_events").mock(
+        return_value=httpx.Response(200, json=[]))
+    respx.get("https://canvas.example.edu/api/v1/planner/items").mock(
+        return_value=httpx.Response(200, json=[]))
+
+    client = CanvasClient(CFG)
+    result = await do_whats_due(client, days=1)
+    await client.aclose()
+
+    titles = [i["title"] for i in result["items"]]
+    assert "Far future" not in titles, "an item a year out must not appear in a 1-day horizon"
+
+
+@respx.mock
+async def test_wide_horizon_keeps_distant_items():
+    respx.get("https://canvas.example.edu/api/v1/users/self/todo").mock(
+        return_value=httpx.Response(200, json=[
+            _todo("Far future", "2027-08-08T00:00:00Z", 2),
+        ])
+    )
+    respx.get("https://canvas.example.edu/api/v1/users/self/upcoming_events").mock(
+        return_value=httpx.Response(200, json=[]))
+    respx.get("https://canvas.example.edu/api/v1/planner/items").mock(
+        return_value=httpx.Response(200, json=[]))
+
+    client = CanvasClient(CFG)
+    result = await do_whats_due(client, days=400)
+    await client.aclose()
+
+    assert [i["title"] for i in result["items"]] == ["Far future"]
+
+
+@respx.mock
+async def test_undated_work_survives_any_horizon():
+    """A to-do with no due date is still outstanding — filtering it out would hide
+    real work. It is kept and flagged so callers can tell it apart."""
+    respx.get("https://canvas.example.edu/api/v1/users/self/todo").mock(
+        return_value=httpx.Response(200, json=[_todo("No due date", None, 3)]))
+    respx.get("https://canvas.example.edu/api/v1/users/self/upcoming_events").mock(
+        return_value=httpx.Response(200, json=[]))
+    respx.get("https://canvas.example.edu/api/v1/planner/items").mock(
+        return_value=httpx.Response(200, json=[]))
+
+    client = CanvasClient(CFG)
+    result = await do_whats_due(client, days=1)
+    await client.aclose()
+
+    assert [i["title"] for i in result["items"]] == ["No due date"]
+    assert result["items"][0]["undated"] is True
+
+
+@respx.mock
+async def test_malformed_due_date_does_not_crash():
+    respx.get("https://canvas.example.edu/api/v1/users/self/todo").mock(
+        return_value=httpx.Response(200, json=[_todo("Broken date", "not-a-date", 4)]))
+    respx.get("https://canvas.example.edu/api/v1/users/self/upcoming_events").mock(
+        return_value=httpx.Response(200, json=[]))
+    respx.get("https://canvas.example.edu/api/v1/planner/items").mock(
+        return_value=httpx.Response(200, json=[]))
+
+    client = CanvasClient(CFG)
+    result = await do_whats_due(client, days=7)
+    await client.aclose()
+
+    assert result["items"][0]["undated"] is True
