@@ -289,8 +289,10 @@ This produces a hard boundary in the project's rollout:
 | Publishing source code | Fine |
 | Instructing other users to mint tokens and paste them | **Contravenes Canvas API Policy** |
 
-**Therefore: phase 1 is for personal use and source publication only. General distribution
-is gated on OAuth2 support (phase 2).**
+**Therefore: phase 1 is for personal use and source publication only.** Publishing source is
+unaffected — code is not a Canvas integration until someone runs it. General distribution
+requires an answer to how other users authenticate, which is not purely a coding decision;
+see Roadmap.
 
 Tokens never reach the author under any configuration — each user's token stays in their own
 MCP client config on their own machine. This removes credential-custody risk but does not
@@ -318,14 +320,37 @@ Not legal advice. NUS IT should be consulted before distribution.
 
 **Phase 1 (this spec)** — student-scoped curated tools, gateway, personal use.
 
-**Phase 2 — OAuth2 and educator support.** Requires a Canvas developer key issued by NUS
-Canvas administrators. Unlocks compliant multi-user distribution, scoped and revocable
-tokens, and curated educator tools (grading triage, submission queue, extensions,
-announcements). PDPA and NUS data-governance review is a prerequisite, not a follow-up,
-because educator use processes other people's personal data.
+**Phase 2 — distribution.** Blocked on an authentication answer, not on code.
 
-Phase 1 is designed so phase 2 is additive: the `Authorization` header is produced in one
-place in `client.py`, and educator endpoints are already reachable via the gateway.
+Canvas OAuth2 does not support PKCE or public clients. Verified against
+`instructure/canvas-lms:doc/api/oauth.md` and `doc/api/oauth_endpoints.md`: no
+`code_challenge`, `code_verifier`, or public-client handling appears in either file, and
+`client_secret` is required for the token exchange. Locally installed software therefore
+cannot implement Canvas OAuth without embedding an extractable `client_secret` in every
+copy — worse than personal tokens, not better.
+
+The remaining options, none of which the author can choose unilaterally:
+
+| Option | Requires |
+|---|---|
+| Institution-issued developer key, configured per install | An NUS Canvas admin to issue a key and accept the shared-secret model |
+| Hosted service holding the secret | Operating infrastructure and custodying credentials — rejected in Non-goals |
+| Continue with personal tokens | Accepting that this contravenes the API Policy sentence on instructing users to mint tokens |
+
+Next action is to ask NUS IT how they would prefer students to use this, rather than to pick
+an approach and present it as settled.
+
+**Phase 3 — educator support.** Curated grading and course-management tools. Gated on phase
+2 plus a PDPA and NUS data-governance review, because educator use processes other people's
+personal data.
+
+**Documentation site.** The repository will publish a docs site to Vercel via its GitHub
+integration; domain to be chosen by the author. Independent of the server design and not a
+prerequisite for any phase.
+
+Phase 1 is designed so later phases are additive: the `Authorization` header is produced in
+one place in `client.py`, so an alternative token source replaces it without touching any
+caller, and educator endpoints are already reachable via the gateway.
 
 ## Risks
 
