@@ -1,0 +1,32 @@
+[project]
+name = "canvas-api-mcp"
+version = "0.1.0"
+description = "MCP server for Canvas LMS — student tools plus full API gateway"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "fastmcp>=3.0",
+    "httpx>=0.27",
+    "pydantic>=2.0",
+    "pypdf>=4.0",
+    "python-pptx>=0.6",
+    "python-docx>=1.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "respx>=0.21"]
+
+[project.scripts]
+canvas-api-mcp = "canvas_api_mcp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/canvas_api_mcp"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
