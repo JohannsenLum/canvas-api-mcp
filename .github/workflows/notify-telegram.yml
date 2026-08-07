@@ -1,14 +1,31 @@
 name: Notify Telegram
 
-# Pings a Telegram chat when someone else opens an issue or PR, or comments.
+# Routes GitHub activity into three Telegram forum topics: Pull Requests, Reviews
+# and Issues.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# ROUTING — the non-obvious part.
+#
+# GitHub has no "PR comment" event. A comment on a pull request arrives as
+# `issue_comment`, exactly like a comment on an issue, because PRs are issues
+# underneath. Routing on event name alone would therefore scatter every PR
+# discussion into the Issues topic. `github.event.issue.pull_request` is non-null
+# only for PR comments, and is how the two are told apart below.
+#
+# The goal is that one conversation lives in one topic: a PR, its comments and
+# its review threads should not need cross-referencing across three chats.
+#
+#   Pull Requests   PR opened/reopened/ready · comments on a PR
+#   Reviews         review submitted (approved / changes requested) · code comments
+#   Issues          issue opened/reopened · comments on an issue
 #
 # ─────────────────────────────────────────────────────────────────────────────
 # SECURITY — read before editing.
 #
-# This uses `pull_request_target`, which runs in the context of the BASE repo and
-# therefore has access to repository secrets. That is the only way a fork PR can
-# trigger a notification at all: with plain `pull_request`, secrets are withheld
-# from fork runs, so the Telegram token would be empty and nothing would send.
+# `pull_request_target` runs in the context of the BASE repo and therefore has
+# access to repository secrets. That is the only way a fork PR can trigger a
+# notification at all: with plain `pull_request`, secrets are withheld from fork
+# runs, so the Telegram token would be empty and nothing would send.
 #
 # `pull_request_target` is dangerous IF you check out and execute PR code, because
 # untrusted code then runs with your secrets in scope. This workflow therefore:
@@ -26,10 +43,14 @@ name: Notify Telegram
 
 on:
   issues:
-    types: [opened, reopened]
-  pull_request_target:
-    types: [opened, reopened, ready_for_review]
+    types: [opened, reopened, closed]
   issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, closed]
+  pull_request_review:
+    types: [submitted]
+  pull_request_review_comment:
     types: [created]
 
 permissions: {}
@@ -41,7 +62,7 @@ concurrency:
 jobs:
   telegram:
     runs-on: ubuntu-latest
-    # Bots are still filtered out; your own activity is not. Own activity is marked
+    # Bots are filtered out; your own activity is not. Own activity is marked
     # "(you)" and left unbold in the payload below, so a real contributor's message
     # still stands out at a glance rather than drowning in your own noise.
     if: github.event.sender.type != 'Bot'
@@ -50,20 +71,30 @@ jobs:
         env:
           TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
-          # Forum topic to post into. A variable rather than a secret: the id is a small
-          # integer that means nothing without the chat, and keeping it editable in the UI
-          # means re-creating a topic doesn't need a commit. Unset -> posts to General.
-          TG_TOPIC: ${{ vars.TELEGRAM_TOPIC_GITHUB }}
+          # Forum topics are variables rather than secrets: the ids are small
+          # integers that mean nothing without the chat, and keeping them editable
+          # in the UI means re-creating a topic doesn't need a commit.
+          TOPIC_PRS: ${{ vars.TELEGRAM_TOPIC_PRS }}
+          TOPIC_REVIEWS: ${{ vars.TELEGRAM_TOPIC_REVIEWS }}
+          TOPIC_ISSUES: ${{ vars.TELEGRAM_TOPIC_ISSUES }}
           # Everything below is untrusted input — env, never inline interpolation.
           KIND: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          # A closed PR is either merged or abandoned; only `merged` tells them apart.
+          MERGED: ${{ github.event.pull_request.merged }}
           ACTOR: ${{ github.event.sender.login }}
           IS_OWNER: ${{ github.event.sender.login == github.repository_owner }}
+          # Non-null only when an issue_comment is on a PR. See ROUTING above.
+          COMMENT_ON_PR: ${{ github.event.issue.pull_request != null }}
           REPO: ${{ github.repository }}
           NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
           TITLE: ${{ github.event.issue.title || github.event.pull_request.title }}
           URL: ${{ github.event.issue.html_url || github.event.pull_request.html_url }}
           COMMENT: ${{ github.event.comment.body }}
           COMMENT_URL: ${{ github.event.comment.html_url }}
+          REVIEW_STATE: ${{ github.event.review.state }}
+          REVIEW_BODY: ${{ github.event.review.body }}
+          REVIEW_URL: ${{ github.event.review.html_url }}
         run: |
           set -euo pipefail
 
@@ -74,19 +105,56 @@ jobs:
 
           # `export` matters — the python heredoc below is a subprocess and only
           # sees exported variables. Without it every lookup KeyErrors and nothing sends.
-          case "$KIND" in
-            issues)              export ICON="🐛" WHAT="opened an issue" ;;
-            pull_request_target) export ICON="🔀" WHAT="opened a pull request" ;;
-            issue_comment)       export ICON="💬" WHAT="commented" ;;
-            *)                   export ICON="🔔" WHAT="did something" ;;
-          esac
-
-          export LINK="$URL"
           export BODY=""
-          if [ "$KIND" = "issue_comment" ]; then
-            export LINK="$COMMENT_URL"
-            export BODY="$(printf '%s' "$COMMENT" | head -c 300)"
-          fi
+          case "$KIND" in
+            issues)
+              export TG_TOPIC="${TOPIC_ISSUES:-}" LINK="$URL"
+              if [ "$ACTION" = "closed" ]; then
+                export ICON="☑️" WHAT="closed an issue"
+              else
+                export ICON="🐛" WHAT="opened an issue"
+              fi
+              ;;
+            pull_request_target)
+              export TG_TOPIC="${TOPIC_PRS:-}" LINK="$URL"
+              if [ "$ACTION" = "closed" ]; then
+                # Merged and abandoned both arrive as `closed`; they mean opposite things.
+                if [ "$MERGED" = "true" ]; then
+                  export ICON="🎉" WHAT="merged a pull request"
+                else
+                  export ICON="🚫" WHAT="closed a pull request without merging"
+                fi
+              else
+                export ICON="🔀" WHAT="opened a pull request"
+              fi
+              ;;
+            issue_comment)
+              export LINK="$COMMENT_URL"
+              export BODY="$(printf '%s' "$COMMENT" | head -c 300)"
+              if [ "$COMMENT_ON_PR" = "true" ]; then
+                export ICON="💬" WHAT="commented on a pull request" TG_TOPIC="${TOPIC_PRS:-}"
+              else
+                export ICON="💬" WHAT="commented on an issue" TG_TOPIC="${TOPIC_ISSUES:-}"
+              fi
+              ;;
+            pull_request_review)
+              export TG_TOPIC="${TOPIC_REVIEWS:-}" LINK="$REVIEW_URL"
+              export BODY="$(printf '%s' "$REVIEW_BODY" | head -c 300)"
+              case "$REVIEW_STATE" in
+                approved)          export ICON="✅" WHAT="approved a pull request" ;;
+                changes_requested) export ICON="🔴" WHAT="requested changes on a pull request" ;;
+                *)                 export ICON="👀" WHAT="reviewed a pull request" ;;
+              esac
+              ;;
+            pull_request_review_comment)
+              export ICON="📝" WHAT="commented on code" TG_TOPIC="${TOPIC_REVIEWS:-}"
+              export LINK="$COMMENT_URL"
+              export BODY="$(printf '%s' "$COMMENT" | head -c 300)"
+              ;;
+            *)
+              export ICON="🔔" WHAT="did something" TG_TOPIC="" LINK="$URL"
+              ;;
+          esac
 
           # Build the payload with python so the title/comment are JSON-escaped
           # properly. Shell quoting alone would break on quotes and newlines.
@@ -117,6 +185,7 @@ jobs:
           if body:
               lines += ["", esc(body, 300)]
           lines += ["", os.environ["LINK"]]
+
           payload = {
               "chat_id": os.environ["TG_CHAT"],
               "text": "\n".join(lines),
@@ -136,4 +205,4 @@ jobs:
             -H 'Content-Type: application/json' \
             -d @/tmp/payload.json > /dev/null
 
-          echo "Notified: $KIND #$NUMBER by $ACTOR"
+          echo "Notified: $KIND #$NUMBER by $ACTOR -> topic ${TG_TOPIC:-General}"
