@@ -45,7 +45,9 @@ def register(mcp: FastMCP, get_client) -> None:
     @mcp.tool(
         description=(
             "Identify the Canvas account this server is authenticated as, including "
-            "the user's name and their role in each course (student, ta, teacher). "
+            "the user's name, their role in each course (student, ta, teacher), and "
+            "their private calendar_feed_url — an .ics link the user can subscribe to "
+            "in Google/Apple/Outlook calendar to see every Canvas deadline natively. "
             "Call this first when you need to know what the user can access."
         ),
         annotations=ToolAnnotations(title="Who Am I", **READ_ONLY.model_dump(exclude={"title"})),
