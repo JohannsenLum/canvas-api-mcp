@@ -2,13 +2,6 @@
 
 # canvas-api-mcp
 
-<h2 align="center">Never miss an assignment deadline again.</h2>
-
-<p align="center">
-  Ask your AI what's due and it reads the answer straight from Canvas —<br>
-  real deadlines, real submission status, no copying anything across.
-</p>
-
 An MCP server for Canvas LMS. 15 curated tools for everyday student work, plus a
 gateway that reaches every endpoint your Canvas instance exposes.
 
