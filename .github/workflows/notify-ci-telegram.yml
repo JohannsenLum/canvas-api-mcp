@@ -1,21 +1,26 @@
 name: Notify Telegram (CI)
 
-# Pings Telegram when CI or the publish pipeline finishes — but only when the
-# outcome is worth interrupting someone for.
+# A running log of what CI is doing on main, in Telegram.
 #
 # WHAT IT SENDS:
-#   - Any Test run finishing on main — pass or fail. Green on main doubles as the
-#     "your push landed and is healthy" signal, which is what makes this topic a
-#     usable deployment log rather than a pure alarm.
-#   - Publish finished (either way)  → a release either shipped or didn't
+#   - STARTED and FINISHED for every Test run on main, and every Publish. The pair
+#     brackets the work: a STARTED with no matching finish means the run hung or
+#     died silently, which a completion-only notifier cannot show you.
+#   - Green on main doubles as the "your push landed and is healthy" signal, which
+#     is what makes this a usable deployment log rather than a pure alarm.
+#
+#   - PR merges arrive here too, from notify-telegram.yml. Merge then green reads
+#     as one entry: "this landed, and the tree is fine."
 #
 # WHAT IT DELIBERATELY DOES NOT SEND:
-#   - Test failing on a PR. The contributor sees that on their own PR, and it is
-#     their job to fix before you look. PR-branch noise would swamp the topic.
-#   - Run started / in progress. You cannot act on "it began".
+#   - Anything about a PR branch, except that CI is blocked awaiting your approval
+#     (which is routed to GH Approvals, not here). Contributors see their own CI;
+#     PR-branch noise would swamp this topic.
+#   - `in_progress`. It carries no information that STARTED did not.
 #
-# If green-on-main ever becomes noise, restore the `conclusion != 'success'`
-# clause in the job's `if:` and this reverts to failures-only.
+# To dial this back if it gets noisy, in order of how much quiet you want:
+#   drop `requested` from the trigger types  -> finishes only
+#   add `conclusion != 'success'` to the if: -> failures and publishes only
 #
 # SECURITY: `workflow_run` always executes in the base-repo context, never with
 # PR code, so secrets are safe here. As with notify-telegram.yml, do NOT add a
@@ -25,7 +30,11 @@ name: Notify Telegram (CI)
 on:
   workflow_run:
     workflows: [Test, Publish]
-    types: [completed]
+    # `requested` fires as the run starts, `completed` when it finishes — together
+    # they bracket the work, so a run that hangs or never reports is visible as a
+    # STARTED with no matching finish. This workflow is not itself in the watched
+    # list, so it cannot retrigger itself.
+    types: [requested, completed]
 
 permissions: {}
 
@@ -44,14 +53,17 @@ jobs:
           # Deployment/CI noise goes to Dev Ops. The one exception is "CI is waiting
           # for your approval", which is about a specific PR and belongs where you'd
           # act on it — it gets its own topic because it is rare, silently blocking,
-# and has no other symptom. Unset -> posts to General.
+          # and has no other symptom. Unset -> posts to General.
           TOPIC_DEVOPS: ${{ vars.TELEGRAM_TOPIC_DEVOPS }}
           TOPIC_APPROVALS: ${{ vars.TELEGRAM_TOPIC_APPROVALS }}
+          # 'requested' when the run starts, 'completed' when it finishes.
+          ACTION: ${{ github.event.action }}
           WF_NAME: ${{ github.event.workflow_run.name }}
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           BRANCH: ${{ github.event.workflow_run.head_branch }}
           REPO: ${{ github.repository }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
           COMMIT_MSG: ${{ github.event.workflow_run.head_commit.message }}
           ACTOR: ${{ github.event.workflow_run.actor.login }}
         run: |
@@ -63,13 +75,19 @@ jobs:
           fi
 
           # export, not plain assignment — the python heredoc is a subprocess.
-          case "$CONCLUSION" in
-            success)         export ICON="✅" ;;
-            failure)         export ICON="❌" ;;
-            cancelled)       export ICON="⚪" ;;
-            action_required) export ICON="⏸️" ;;
-            *)               export ICON="⚠️" ;;
-          esac
+          # On a `requested` event `conclusion` is null, so status comes from ACTION.
+          if [ "$ACTION" = "requested" ]; then
+            export ICON="🔵" STATUS="STARTED"
+          else
+            case "$CONCLUSION" in
+              success)         export ICON="✅" STATUS="SUCCESS" ;;
+              failure)         export ICON="❌" STATUS="FAILURE" ;;
+              cancelled)       export ICON="⚪" STATUS="CANCELLED" ;;
+              action_required) export ICON="⏸️" STATUS="NEEDS APPROVAL" ;;
+              skipped)         export ICON="⏭️" STATUS="SKIPPED" ;;
+              *)               export ICON="⚠️" STATUS="$(printf '%s' "${CONCLUSION:-UNKNOWN}" | tr '[:lower:]' '[:upper:]')" ;;
+            esac
+          fi
 
           # A fork PR from a first-time contributor holds CI until you approve it.
           # Nothing else tells you that — you'd otherwise find out by wondering why
@@ -90,29 +108,33 @@ jobs:
               return html.escape((v or "")[:n], quote=False)
 
           wf = os.environ["WF_NAME"]
-          concl = os.environ["CONCLUSION"]
+          concl = os.environ.get("CONCLUSION") or ""
+          icon, status = os.environ["ICON"], os.environ["STATUS"]
           # First line of the commit message only — bodies are long and noisy.
           subject = (os.environ.get("COMMIT_MSG") or "").splitlines()
           subject = subject[0] if subject else ""
+          sha = (os.environ.get("COMMIT_SHA") or "")[:7]
 
-          if concl == "action_required":
-              headline = "⏸️ <b>CI is waiting for your approval</b>"
-          elif wf == "Publish" and concl == "success":
-              headline = "🚀 <b>Published</b> — PyPI and the MCP registry"
-          elif wf == "Test" and concl == "success":
-              # Reads as a deployment-log entry rather than a status code, since on
-              # main this is really "your push landed and the tree is healthy".
-              headline = "✅ <b>main</b> is green"
+          # A publish is the one event worth breaking the format for — it is the
+          # only thing here that reaches users rather than just the repo.
+          if wf == "Publish" and concl == "success":
+              headline = "🚀 <b>PUBLISHED</b> — PyPI and the MCP registry"
           else:
-              headline = f'{os.environ["ICON"]} <b>{esc(wf, 40)}</b> {esc(concl, 20)}'
+              headline = f"{icon} <b>{status}</b> — {esc(wf, 40)}"
 
           lines = [
               headline,
-              f'<code>{esc(os.environ["REPO"], 120)}</code> · {esc(os.environ["BRANCH"], 60)}',
+              "",
+              f'<b>Repo:</b> <code>{esc(os.environ["REPO"], 120)}</code>',
+              f'<b>Workflow:</b> {esc(wf, 60)}',
+              f'<b>Branch:</b> {esc(os.environ.get("BRANCH"), 80)}',
           ]
+          if sha:
+              lines.append(f'<b>Commit:</b> <code>{esc(sha, 12)}</code>')
           if subject:
-              lines += ["", esc(subject, 160)]
-          lines += ["", os.environ["RUN_URL"]]
+              lines.append(f'<b>Message:</b> {esc(subject, 160)}')
+          lines.append(f'<b>Actor:</b> {esc(os.environ.get("ACTOR"), 80)}')
+          lines += ["", f'<a href="{esc(os.environ["RUN_URL"], 300)}">View run</a>']
 
           payload = {
               "chat_id": os.environ["TG_CHAT"],
@@ -133,4 +155,4 @@ jobs:
             -H 'Content-Type: application/json' \
             -d @/tmp/ci_payload.json > /dev/null
 
-          echo "Notified: $WF_NAME $CONCLUSION on $BRANCH"
+          echo "Notified: $WF_NAME $STATUS on $BRANCH -> topic ${TG_TOPIC:-General}"
