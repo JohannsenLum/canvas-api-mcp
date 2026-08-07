@@ -5,6 +5,12 @@
 An MCP server for Canvas LMS. 15 curated tools for everyday student work, plus a
 gateway that reaches every endpoint your Canvas instance exposes.
 
+**📖 Documentation: [mcp.johannsenlum.com/canvas-lms](https://mcp.johannsenlum.com/canvas-lms)**
+— [install guide](https://mcp.johannsenlum.com/canvas-lms/install) ·
+[tool reference](https://mcp.johannsenlum.com/canvas-lms/tools) ·
+[skills](https://mcp.johannsenlum.com/canvas-lms/skills) ·
+[compliance](https://mcp.johannsenlum.com/canvas-lms/compliance)
+
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/JohannsenLum/canvas-api-mcp/blob/main/LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/JohannsenLum/canvas-api-mcp?style=social)](https://github.com/JohannsenLum/canvas-api-mcp)
@@ -384,6 +390,24 @@ CANVAS_LIVE_TESTS=1 uv run pytest tests/test_live.py -v
 Environment variables: `CANVAS_BASE_URL`, `CANVAS_TOKEN`, optional
 `CANVAS_MAX_PAGES` (default 10). See `env.template`.
 
+## Contributing
+
+Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for
+setup, the architectural rules worth knowing before you change anything, and the bar
+for adding a new curated tool.
+
+Found a security problem? **Do not open a public issue.** See
+[SECURITY.md](SECURITY.md) for private reporting — particularly important here, since
+this project handles password-equivalent Canvas tokens.
+
+Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
+
 ## Licence
 
-MIT
+[MIT](LICENSE) © 2026 Johannsen Lum.
+
+Use it, change it, redistribute it, build something commercial on it — the only
+condition is that you keep the copyright notice and licence text. It comes with no
+warranty of any kind.
+
+Contributions are accepted under the same licence.
