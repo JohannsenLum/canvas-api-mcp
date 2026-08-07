@@ -9,7 +9,7 @@ from fastmcp import FastMCP
 
 from .client import CanvasClient
 from .config import Config
-from .tools import gateway, orientation, student
+from .tools import content, gateway, orientation, student
 
 mcp = FastMCP(
     "Canvas",
@@ -35,6 +35,7 @@ def get_client() -> CanvasClient:
     return _client
 
 
+content.register(mcp, get_client)
 gateway.register(mcp, get_client)
 orientation.register(mcp, get_client)
 student.register(mcp, get_client)
