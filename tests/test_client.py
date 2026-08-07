@@ -25,11 +25,18 @@ async def test_get_sends_bearer_token_and_returns_data():
 
 @respx.mock
 @pytest.mark.parametrize(
-    "given",
-    ["courses", "/courses", "/v1/courses", "/api/v1/courses"],
+    ("given", "expected"),
+    [
+        ("courses", "/api/v1/courses"),
+        ("/courses", "/api/v1/courses"),
+        ("/v1/courses", "/api/v1/courses"),
+        ("/api/v1/courses", "/api/v1/courses"),
+        ("/api/graphql", "/api/graphql"),
+        ("/api/v1", "/api/v1"),
+    ],
 )
-async def test_path_forms_all_resolve_to_the_same_url(given):
-    route = respx.get("https://canvas.example.edu/api/v1/courses").mock(
+async def test_path_forms_resolve_to_expected_url(given, expected):
+    route = respx.get(f"https://canvas.example.edu{expected}").mock(
         return_value=httpx.Response(200, json=[])
     )
     client = CanvasClient(CFG)

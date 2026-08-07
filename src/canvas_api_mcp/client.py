@@ -50,16 +50,15 @@ class CanvasResponse:
 
 
 def _normalise_path(path: str) -> str:
-    """Accept any of courses, /courses, /v1/courses, /api/v1/courses."""
+    """Normalise REST shorthands while preserving explicit Canvas API paths."""
     p = path.strip()
     if p.startswith("http://") or p.startswith("https://"):
         raise CanvasError(0, f"Path must be relative, got a full URL: {p}")
     p = "/" + p.lstrip("/")
-    for prefix in ("/api/v1/", "/v1/"):
-        if p.startswith(prefix):
-            return "/api/v1/" + p[len(prefix):]
-    if p.startswith("/api/"):
-        return "/api/v1/" + p[len("/api/"):]
+    if p == "/api/v1" or p.startswith("/api/"):
+        return p
+    if p.startswith("/v1/"):
+        return "/api/v1/" + p[len("/v1/"):]
     return "/api/v1" + p
 
 
