@@ -6,7 +6,9 @@ No tool module should construct HTTP requests directly.
 
 from __future__ import annotations
 
+import asyncio
 import json as jsonlib
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -15,6 +17,10 @@ import httpx
 from .config import Config
 
 RATE_LIMIT_MARKER = "rate limit exceeded"
+MAX_ATTEMPTS = 3
+BACKOFF_SECONDS = (0.5, 1.0)
+LOW_QUOTA_THRESHOLD = 100.0
+THROTTLE_PAUSE_SECONDS = 1.0
 
 
 def _is_rate_limited(response: httpx.Response) -> bool:
@@ -81,8 +87,11 @@ class CanvasClient:
         self,
         config: Config,
         transport: httpx.AsyncBaseTransport | None = None,
+        sleep: Callable[[float], Awaitable[None]] | None = None,
     ) -> None:
         self._config = config
+        self._sleep = sleep or asyncio.sleep
+        self._quota_low = False
         self._client = httpx.AsyncClient(
             base_url=config.base_url,
             headers={
@@ -96,6 +105,34 @@ class CanvasClient:
 
     async def aclose(self) -> None:
         await self._client.aclose()
+
+    def _note_quota(self, response: httpx.Response) -> None:
+        raw = response.headers.get("X-Rate-Limit-Remaining")
+        if raw is None:
+            return
+        try:
+            self._quota_low = float(raw) < LOW_QUOTA_THRESHOLD
+        except ValueError:
+            self._quota_low = False
+
+    async def _send(
+        self, method: str, url: str, params: dict | None, json: dict | None
+    ) -> httpx.Response:
+        """Send one request, honouring throttle state and retrying transient failures."""
+        for attempt in range(MAX_ATTEMPTS):
+            if self._quota_low:
+                await self._sleep(THROTTLE_PAUSE_SECONDS)
+
+            response = await self._client.request(method, url, params=params, json=json)
+            self._note_quota(response)
+
+            transient = response.status_code >= 500 or _is_rate_limited(response)
+            if transient and attempt < MAX_ATTEMPTS - 1:
+                await self._sleep(BACKOFF_SECONDS[attempt])
+                continue
+            return response
+
+        return response  # pragma: no cover - loop always returns
 
     @staticmethod
     def _canvas_message(response: httpx.Response) -> str:
@@ -179,9 +216,7 @@ class CanvasClient:
         truncated = False
 
         while url is not None:
-            response = await self._client.request(
-                method.upper(), url, params=query, json=json
-            )
+            response = await self._send(method.upper(), url, query, json)
             self._raise_for_status(response)
             payload = self._parse(response)
             pages += 1
