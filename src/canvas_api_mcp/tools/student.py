@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastmcp import FastMCP
@@ -102,6 +103,143 @@ async def do_whats_due(client: CanvasClient, days: int = 14) -> dict[str, Any]:
     return {"items": ordered, "days": days, "warnings": warnings}
 
 
+async def do_my_grades(client: CanvasClient, course_id: int | None = None) -> list[dict]:
+    response = await client.request(
+        "GET",
+        "courses",
+        params={"enrollment_state": "active", "include[]": ["total_scores"], "per_page": 100},
+    )
+    out = []
+    for course in response.data or []:
+        if course_id is not None and course.get("id") != course_id:
+            continue
+        enrolment = next(
+            (e for e in course.get("enrollments", []) if e.get("type") == "student"),
+            None,
+        )
+        if enrolment is None:
+            continue
+        out.append(
+            {
+                "course_id": course.get("id"),
+                "course_name": course.get("name"),
+                "current_score": enrolment.get("computed_current_score"),
+                "current_grade": enrolment.get("computed_current_grade"),
+                "final_score": enrolment.get("computed_final_score"),
+            }
+        )
+    return out
+
+
+async def do_list_assignments(
+    client: CanvasClient, course_id: int, bucket: str | None = None
+) -> list[dict]:
+    params: dict[str, Any] = {"include[]": ["submission"], "per_page": 100}
+    if bucket:
+        params["bucket"] = bucket
+    response = await client.request(
+        "GET", f"courses/{course_id}/assignments", params=params
+    )
+    out = []
+    for assignment in response.data or []:
+        submission = assignment.get("submission") or {}
+        state = submission.get("workflow_state")
+        out.append(
+            {
+                "id": assignment.get("id"),
+                "name": assignment.get("name"),
+                "due_at": assignment.get("due_at"),
+                "points_possible": assignment.get("points_possible"),
+                "html_url": assignment.get("html_url"),
+                "submitted": state in {"submitted", "graded", "pending_review"},
+                "score": submission.get("score"),
+            }
+        )
+    return out
+
+
+async def do_get_assignment(
+    client: CanvasClient, course_id: int, assignment_id: int
+) -> dict:
+    response = await client.request(
+        "GET",
+        f"courses/{course_id}/assignments/{assignment_id}",
+        params={"include[]": ["submission"]},
+    )
+    assignment = response.data or {}
+    return {
+        "id": assignment.get("id"),
+        "name": assignment.get("name"),
+        "description": assignment.get("description"),
+        "due_at": assignment.get("due_at"),
+        "unlock_at": assignment.get("unlock_at"),
+        "lock_at": assignment.get("lock_at"),
+        "points_possible": assignment.get("points_possible"),
+        "submission_types": assignment.get("submission_types", []),
+        "allowed_extensions": assignment.get("allowed_extensions", []),
+        "html_url": assignment.get("html_url"),
+        "rubric": assignment.get("rubric", []),
+        "submission": assignment.get("submission"),
+    }
+
+
+async def do_my_submission(
+    client: CanvasClient, course_id: int, assignment_id: int
+) -> dict:
+    response = await client.request(
+        "GET",
+        f"courses/{course_id}/assignments/{assignment_id}/submissions/self",
+        params={"include[]": ["submission_comments", "rubric_assessment"]},
+    )
+    submission = response.data or {}
+    return {
+        "workflow_state": submission.get("workflow_state"),
+        "submitted_at": submission.get("submitted_at"),
+        "score": submission.get("score"),
+        "grade": submission.get("grade"),
+        "late": submission.get("late"),
+        "missing": submission.get("missing"),
+        "attempt": submission.get("attempt"),
+        "comments": submission.get("submission_comments", []),
+        "rubric_assessment": submission.get("rubric_assessment"),
+    }
+
+
+async def do_course_announcements(
+    client: CanvasClient, course_id: int | None = None, days: int = 14
+) -> list[dict]:
+    start = datetime.now(timezone.utc) - timedelta(days=days)
+    params: dict[str, Any] = {
+        "start_date": start.date().isoformat(),
+        "per_page": 50,
+    }
+    if course_id is not None:
+        params["context_codes[]"] = [f"course_{course_id}"]
+    else:
+        courses = await client.request(
+            "GET", "courses", params={"enrollment_state": "active", "per_page": 100}
+        )
+        codes = [f"course_{c['id']}" for c in (courses.data or []) if c.get("id")]
+        if not codes:
+            return []
+        params["context_codes[]"] = codes
+
+    response = await client.request("GET", "announcements", params=params)
+    out = []
+    for item in response.data or []:
+        out.append(
+            {
+                "id": item.get("id"),
+                "title": item.get("title"),
+                "message": item.get("message"),
+                "posted_at": item.get("posted_at"),
+                "html_url": item.get("html_url"),
+                "course_id": _course_id_from_context(item.get("context_code")),
+            }
+        )
+    return out
+
+
 def register(mcp: FastMCP, get_client) -> None:
     @mcp.tool(
         description=(
@@ -116,3 +254,76 @@ def register(mcp: FastMCP, get_client) -> None:
     ) -> dict:
         """Merged upcoming deadlines and events."""
         return await do_whats_due(get_client(), days=days)
+
+    @mcp.tool(
+        description=(
+            "Report the user's current grade and score in each course, or in one course "
+            "if course_id is given. Use this for 'how am I doing' and standing questions."
+        ),
+        annotations=ToolAnnotations(title="My Grades", **READ_ONLY),
+    )
+    async def my_grades(
+        course_id: int | None = Field(default=None, description="Limit to one course; omit for all"),
+    ) -> list[dict]:
+        """Current scores per course."""
+        return await do_my_grades(get_client(), course_id=course_id)
+
+    @mcp.tool(
+        description=(
+            "List a course's assignments with due dates, points, and whether the user "
+            "has submitted each one. Use bucket to filter to upcoming, overdue, "
+            "unsubmitted, or past work."
+        ),
+        annotations=ToolAnnotations(title="List Assignments", **READ_ONLY),
+    )
+    async def list_assignments(
+        course_id: int = Field(description="Course id, from my_courses"),
+        bucket: str | None = Field(
+            default=None,
+            description="One of: past, overdue, undated, ungraded, unsubmitted, upcoming, future",
+        ),
+    ) -> list[dict]:
+        """Assignments in a course."""
+        return await do_list_assignments(get_client(), course_id, bucket=bucket)
+
+    @mcp.tool(
+        description=(
+            "Get one assignment in full: instructions, due and lock dates, points, "
+            "accepted submission types, rubric, and the user's current submission state."
+        ),
+        annotations=ToolAnnotations(title="Get Assignment", **READ_ONLY),
+    )
+    async def get_assignment(
+        course_id: int = Field(description="Course id"),
+        assignment_id: int = Field(description="Assignment id"),
+    ) -> dict:
+        """Full detail for a single assignment."""
+        return await do_get_assignment(get_client(), course_id, assignment_id)
+
+    @mcp.tool(
+        description=(
+            "Get the user's own submission for an assignment: state, score, grade, "
+            "lateness, instructor comments, and rubric assessment."
+        ),
+        annotations=ToolAnnotations(title="My Submission", **READ_ONLY),
+    )
+    async def my_submission(
+        course_id: int = Field(description="Course id"),
+        assignment_id: int = Field(description="Assignment id"),
+    ) -> dict:
+        """The user's submission and feedback."""
+        return await do_my_submission(get_client(), course_id, assignment_id)
+
+    @mcp.tool(
+        description=(
+            "List recent course announcements across all active courses, or one course "
+            "if course_id is given."
+        ),
+        annotations=ToolAnnotations(title="Announcements", **READ_ONLY),
+    )
+    async def course_announcements(
+        course_id: int | None = Field(default=None, description="Limit to one course; omit for all"),
+        days: int = Field(default=14, description="How many days back to look"),
+    ) -> list[dict]:
+        """Recent announcements."""
+        return await do_course_announcements(get_client(), course_id=course_id, days=days)
