@@ -46,6 +46,25 @@ def _normalise_path(path: str) -> str:
     return "/api/v1" + p
 
 
+def _next_link(response: httpx.Response) -> str | None:
+    """Parse the RFC 5988 Link header and return the rel="next" URL."""
+    header = response.headers.get("Link")
+    if not header:
+        return None
+    for part in header.split(","):
+        segments = part.split(";")
+        if len(segments) < 2:
+            continue
+        url = segments[0].strip()
+        if not (url.startswith("<") and url.endswith(">")):
+            continue
+        for attr in segments[1:]:
+            key, _, value = attr.strip().partition("=")
+            if key.strip() == "rel" and value.strip().strip('"') == "next":
+                return url[1:-1]
+    return None
+
+
 class CanvasClient:
     def __init__(
         self,
@@ -75,12 +94,40 @@ class CanvasClient:
         json: dict | None = None,
         paginate: bool = True,
     ) -> CanvasResponse:
-        url = _normalise_path(path)
-        response = await self._client.request(
-            method.upper(), url, params=params, json=json
-        )
-        data = self._parse(response)
-        return CanvasResponse(data=data, truncated=False, pages_fetched=1)
+        url: str | None = _normalise_path(path)
+        query: dict | None = params
+        merged: list[Any] = []
+        first: Any = None
+        pages = 0
+        truncated = False
+
+        while url is not None:
+            response = await self._client.request(
+                method.upper(), url, params=query, json=json
+            )
+            payload = self._parse(response)
+            pages += 1
+
+            if pages == 1:
+                first = payload
+            if isinstance(payload, list):
+                merged.extend(payload)
+
+            # Only list responses paginate. Subsequent pages carry their full
+            # query string in the Link URL, so params must not be re-sent.
+            if not paginate or not isinstance(payload, list):
+                break
+
+            next_url = _next_link(response)
+            if next_url is None:
+                break
+            if pages >= self._config.max_pages:
+                truncated = True
+                break
+            url, query, json = next_url, None, None
+
+        data = merged if isinstance(first, list) else first
+        return CanvasResponse(data=data, truncated=truncated, pages_fetched=pages)
 
     def _parse(self, response: httpx.Response) -> Any:
         if response.status_code == 204 or not response.content:
