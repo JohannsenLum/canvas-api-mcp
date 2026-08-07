@@ -97,3 +97,35 @@ async def test_no_throttle_when_quota_is_healthy():
     await client.request("GET", "courses")
     await client.aclose()
     assert slept == []
+
+
+@respx.mock
+async def test_no_throttle_exactly_at_threshold():
+    """LOW_QUOTA_THRESHOLD is 100.0; the comparison is strictly '<', so a
+    remaining quota of exactly 100.0 must not trigger throttling."""
+    respx.get(URL).mock(
+        return_value=httpx.Response(
+            200, json=[], headers={"X-Rate-Limit-Remaining": "100.0"}
+        )
+    )
+    client, slept = make_client()
+    await client.request("GET", "courses")
+    await client.request("GET", "courses")
+    await client.aclose()
+    assert slept == []
+
+
+@respx.mock
+async def test_throttle_just_under_threshold():
+    """A remaining quota just below LOW_QUOTA_THRESHOLD must trigger throttling
+    on the next request."""
+    respx.get(URL).mock(
+        return_value=httpx.Response(
+            200, json=[], headers={"X-Rate-Limit-Remaining": "99.9"}
+        )
+    )
+    client, slept = make_client()
+    await client.request("GET", "courses")
+    await client.request("GET", "courses")
+    await client.aclose()
+    assert 1.0 in slept

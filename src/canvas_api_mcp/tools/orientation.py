@@ -35,7 +35,7 @@ async def do_my_courses(client: CanvasClient, state: str = "active") -> list[dic
                 "name": course.get("name"),
                 "course_code": course.get("course_code"),
                 "term": term.get("name"),
-                "roles": [e.get("type") for e in course.get("enrollments", []) if e.get("type")],
+                "roles": [e.get("type") for e in (course.get("enrollments") or []) if e.get("type")],
             }
         )
     return shaped

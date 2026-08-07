@@ -53,6 +53,27 @@ async def test_my_grades_filters_to_one_course():
 
 
 @respx.mock
+async def test_my_grades_skips_course_with_null_enrollments():
+    """Canvas can serialize enrollments: null (not just an absent key) for a
+    course; this must not raise TypeError and should just skip that course."""
+    respx.get(f"{API}/courses").mock(
+        return_value=httpx.Response(200, json=[
+            {"id": 1, "name": "Course A", "enrollments": None},
+            {"id": 101, "name": "Algorithms", "enrollments": [
+                {"type": "student", "computed_current_score": 78.5,
+                 "computed_current_grade": "B+", "computed_final_score": 70.2}
+            ]},
+        ])
+    )
+    client = CanvasClient(CFG)
+    grades = await do_my_grades(client)
+    await client.aclose()
+
+    assert len(grades) == 1
+    assert grades[0]["course_id"] == 101
+
+
+@respx.mock
 async def test_list_assignments_flattens_submission_state():
     respx.get(f"{API}/courses/101/assignments").mock(
         return_value=httpx.Response(200, json=[

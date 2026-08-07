@@ -77,6 +77,21 @@ async def test_reply_to_entry_uses_nested_endpoint():
 
 
 @respx.mock
+async def test_canvas_rejection_is_returned_structured():
+    """A rejected POST (e.g. 403) must come back as the tool's structured
+    error contract, not an unhandled exception."""
+    respx.post(f"{API}/courses/101/discussion_topics/7/entries").mock(
+        return_value=httpx.Response(403, json={"status": "unauthorized"})
+    )
+    client = CanvasClient(CFG)
+    result = await do_post_discussion_reply(client, 101, 7, "My answer")
+    await client.aclose()
+
+    assert result["error"] is True
+    assert result["status"] == 403
+
+
+@respx.mock
 async def test_empty_message_is_rejected_without_sending():
     route = respx.post(f"{API}/courses/101/discussion_topics/7/entries").mock(
         return_value=httpx.Response(201, json={})

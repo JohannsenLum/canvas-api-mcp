@@ -1,4 +1,6 @@
 # tests/test_submit.py
+import json
+
 import httpx
 import respx
 
@@ -22,9 +24,11 @@ async def test_text_entry_posts_correct_payload():
     )
     await client.aclose()
 
-    sent = route.calls[0].request.read().decode()
-    assert '"submission_type": "online_text_entry"' in sent.replace("  ", " ") or "online_text_entry" in sent
-    assert "my answer" in sent
+    sent = json.loads(route.calls[0].request.read().decode())
+    assert sent["submission"] == {
+        "submission_type": "online_text_entry",
+        "body": "my answer",
+    }
     assert result["workflow_state"] == "submitted"
 
 
@@ -56,6 +60,30 @@ async def test_missing_body_for_text_entry_is_rejected_without_sending():
     assert route.called is False
     assert result["error"] is True
     assert "body" in result["message"]
+
+
+async def test_missing_url_for_online_url_is_rejected_without_sending():
+    with respx.mock:
+        route = respx.post(URL).mock(return_value=httpx.Response(201, json={}))
+        client = CanvasClient(CFG)
+        result = await do_submit_assignment(client, 101, 1, "online_url")
+        await client.aclose()
+
+    assert route.called is False
+    assert result["error"] is True
+    assert "url" in result["message"]
+
+
+async def test_missing_file_ids_for_upload_is_rejected_without_sending():
+    with respx.mock:
+        route = respx.post(URL).mock(return_value=httpx.Response(201, json={}))
+        client = CanvasClient(CFG)
+        result = await do_submit_assignment(client, 101, 1, "online_upload")
+        await client.aclose()
+
+    assert route.called is False
+    assert result["error"] is True
+    assert "file_ids" in result["message"]
 
 
 async def test_unknown_submission_type_is_rejected_without_sending():

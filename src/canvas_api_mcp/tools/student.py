@@ -6,6 +6,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import httpx
 from fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 from pydantic import Field
@@ -71,11 +72,36 @@ def _from_upcoming(entry: dict) -> dict | None:
     }
 
 
+def _from_planner(entry: dict) -> dict | None:
+    plannable = entry.get("plannable") or {}
+    plannable_type = entry.get("plannable_type")
+    plannable_id = entry.get("plannable_id")
+    if plannable_type == "assignment":
+        key = ("assignment", plannable.get("id") or plannable_id)
+    else:
+        key = ("planner", plannable_type, plannable_id)
+    submissions = entry.get("submissions")
+    submitted = bool(submissions.get("submitted")) if isinstance(submissions, dict) else False
+    return {
+        "title": plannable.get("title") or entry.get("context_name"),
+        "type": plannable_type or "event",
+        "due_at": entry.get("plannable_date") or plannable.get("due_at"),
+        "course_id": entry.get("course_id"),
+        "course_name": entry.get("context_name"),
+        "html_url": entry.get("html_url"),
+        "submitted": submitted,
+        "_key": key,
+    }
+
+
 async def _safe_fetch(client: CanvasClient, path: str, warnings: list[str]) -> list[dict]:
     try:
         response = await client.request("GET", path)
     except CanvasError as exc:
         warnings.append(f"Could not read {path}: {exc.message}")
+        return []
+    except httpx.HTTPError as exc:
+        warnings.append(f"Could not read {path}: {exc}")
         return []
     data = response.data
     return data if isinstance(data, list) else []
@@ -85,6 +111,7 @@ async def do_whats_due(client: CanvasClient, days: int = 14) -> dict[str, Any]:
     warnings: list[str] = []
     todo = await _safe_fetch(client, "users/self/todo", warnings)
     upcoming = await _safe_fetch(client, "users/self/upcoming_events", warnings)
+    planner = await _safe_fetch(client, "planner/items", warnings)
 
     items: dict[tuple, dict] = {}
     for entry in todo:
@@ -93,6 +120,10 @@ async def do_whats_due(client: CanvasClient, days: int = 14) -> dict[str, Any]:
             items.setdefault(item["_key"], item)
     for entry in upcoming:
         item = _from_upcoming(entry)
+        if item:
+            items.setdefault(item["_key"], item)
+    for entry in planner:
+        item = _from_planner(entry)
         if item:
             items.setdefault(item["_key"], item)
 
@@ -114,7 +145,7 @@ async def do_my_grades(client: CanvasClient, course_id: int | None = None) -> li
         if course_id is not None and course.get("id") != course_id:
             continue
         enrolment = next(
-            (e for e in course.get("enrollments", []) if e.get("type") == "student"),
+            (e for e in (course.get("enrollments") or []) if e.get("type") == "student"),
             None,
         )
         if enrolment is None:

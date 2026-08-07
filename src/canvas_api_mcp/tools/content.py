@@ -38,7 +38,7 @@ async def do_course_content(client: CanvasClient, course_id: int) -> list[dict]:
                         "page_url": item.get("page_url"),
                         "html_url": item.get("html_url"),
                     }
-                    for item in module.get("items", [])
+                    for item in module.get("items") or []
                 ],
             }
         )

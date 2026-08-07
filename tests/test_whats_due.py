@@ -36,12 +36,30 @@ UPCOMING = [
 ]
 
 
-def _mock_all(todo=None, upcoming=None):
+PLANNER = [
+    {
+        "context_type": "Course",
+        "course_id": 101,
+        "plannable_type": "planner_note",
+        "plannable_id": 55,
+        "plannable": {"id": 55, "title": "Read Chapter 4"},
+        "plannable_date": "2026-08-10T09:00:00Z",
+        "context_name": "Algorithms",
+        "html_url": "https://c/55",
+        "submissions": False,
+    }
+]
+
+
+def _mock_all(todo=None, upcoming=None, planner=None):
     respx.get("https://canvas.example.edu/api/v1/users/self/todo").mock(
         return_value=httpx.Response(200, json=todo if todo is not None else TODO)
     )
     respx.get("https://canvas.example.edu/api/v1/users/self/upcoming_events").mock(
         return_value=httpx.Response(200, json=upcoming if upcoming is not None else UPCOMING)
+    )
+    respx.get("https://canvas.example.edu/api/v1/planner/items").mock(
+        return_value=httpx.Response(200, json=planner if planner is not None else [])
     )
 
 
@@ -97,9 +115,74 @@ async def test_one_source_failing_still_returns_the_other():
     respx.get("https://canvas.example.edu/api/v1/users/self/upcoming_events").mock(
         return_value=httpx.Response(200, json=UPCOMING)
     )
+    respx.get("https://canvas.example.edu/api/v1/planner/items").mock(
+        return_value=httpx.Response(200, json=[])
+    )
     client = CanvasClient(CFG)
     result = await do_whats_due(client)
     await client.aclose()
 
     assert len(result["items"]) == 2
     assert "todo" in " ".join(result["warnings"]).lower()
+
+
+@respx.mock
+async def test_one_source_network_error_still_returns_the_others():
+    """A transport-level failure (timeout, connection refused, ...) on one
+    source must degrade gracefully, exactly like an HTTP-status failure does."""
+    respx.get("https://canvas.example.edu/api/v1/users/self/todo").mock(
+        side_effect=httpx.ReadTimeout("timed out")
+    )
+    respx.get("https://canvas.example.edu/api/v1/users/self/upcoming_events").mock(
+        return_value=httpx.Response(200, json=UPCOMING)
+    )
+    respx.get("https://canvas.example.edu/api/v1/planner/items").mock(
+        return_value=httpx.Response(200, json=[])
+    )
+    client = CanvasClient(CFG)
+    result = await do_whats_due(client)
+    await client.aclose()
+
+    assert len(result["items"]) == 2
+    assert "todo" in " ".join(result["warnings"]).lower()
+
+
+@respx.mock
+async def test_planner_only_items_are_merged_in():
+    """An item that only exists in /planner/items (e.g. a planner note) must
+    still surface, even though it is absent from /todo and /upcoming_events."""
+    _mock_all(planner=PLANNER)
+    client = CanvasClient(CFG)
+    result = await do_whats_due(client)
+    await client.aclose()
+
+    titles = [i["title"] for i in result["items"]]
+    assert "Read Chapter 4" in titles
+    note = next(i for i in result["items"] if i["title"] == "Read Chapter 4")
+    assert note["course_id"] == 101
+    assert note["due_at"] == "2026-08-10T09:00:00Z"
+
+
+@respx.mock
+async def test_planner_assignment_dedupes_against_todo():
+    """A planner item for the same assignment already seen via /todo must not
+    produce a duplicate entry."""
+    planner_dupe = [
+        {
+            "context_type": "Course",
+            "course_id": 101,
+            "plannable_type": "assignment",
+            "plannable_id": 1,
+            "plannable": {"id": 1, "title": "Problem Set 3"},
+            "plannable_date": "2026-08-12T15:59:00Z",
+            "context_name": "Algorithms",
+            "html_url": "https://c/1",
+            "submissions": False,
+        }
+    ]
+    _mock_all(planner=planner_dupe)
+    client = CanvasClient(CFG)
+    result = await do_whats_due(client)
+    await client.aclose()
+
+    assert sum(1 for i in result["items"] if i["title"] == "Problem Set 3") == 1

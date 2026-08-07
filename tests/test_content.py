@@ -32,6 +32,23 @@ async def test_course_content_nests_items_under_modules():
 
 
 @respx.mock
+async def test_course_content_handles_null_items():
+    """Canvas serializes items: null (not just an absent key) for modules the
+    requesting user cannot fully enumerate; this must not raise TypeError."""
+    respx.get(f"{API}/courses/101/modules").mock(
+        return_value=httpx.Response(200, json=[
+            {"id": 1, "name": "Restricted Module", "position": 1, "items": None},
+        ])
+    )
+    client = CanvasClient(CFG)
+    modules = await do_course_content(client, 101)
+    await client.aclose()
+
+    assert modules[0]["name"] == "Restricted Module"
+    assert modules[0]["items"] == []
+
+
+@respx.mock
 async def test_course_content_requests_items_inline():
     route = respx.get(f"{API}/courses/101/modules").mock(
         return_value=httpx.Response(200, json=[])

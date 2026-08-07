@@ -100,6 +100,36 @@ async def test_read_file_truncates_long_text():
 
 
 @respx.mock
+async def test_read_file_reports_metadata_404_as_structured_error():
+    """A deleted/inaccessible file_id must come back as the tool's structured
+    error contract, not an unhandled CanvasError."""
+    respx.get(f"{API}/files/504").mock(
+        return_value=httpx.Response(404, json={"errors": [{"message": "not found"}]})
+    )
+    client = CanvasClient(CFG)
+    result = await do_read_file(client, 504)
+    await client.aclose()
+
+    assert result["error"] is True
+    assert result["status"] == 404
+
+
+@respx.mock
+async def test_read_file_reports_missing_download_url_as_structured_error():
+    respx.get(f"{API}/files/505").mock(
+        return_value=httpx.Response(200, json={
+            "id": 505, "display_name": "ghost.txt", "content-type": "text/plain",
+        })
+    )
+    client = CanvasClient(CFG)
+    result = await do_read_file(client, 505)
+    await client.aclose()
+
+    assert result["error"] is True
+    assert "ghost.txt" in result["message"]
+
+
+@respx.mock
 async def test_read_file_reports_unsupported_type_as_structured_error():
     respx.get(f"{API}/files/503").mock(
         return_value=httpx.Response(200, json={

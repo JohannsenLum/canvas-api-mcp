@@ -84,6 +84,24 @@ async def test_my_courses_shapes_term_and_roles():
 
 
 @respx.mock
+async def test_my_courses_handles_null_enrollments():
+    """Canvas can serialize enrollments: null (not just an absent key) for a
+    course; this must not raise TypeError and should yield an empty roles list."""
+    respx.get("https://canvas.example.edu/api/v1/courses").mock(
+        return_value=httpx.Response(200, json=[
+            {"id": 1, "name": "Course A", "course_code": "A",
+             "term": {"name": "T"}, "enrollments": None},
+        ])
+    )
+    client = CanvasClient(CFG)
+    courses = await do_my_courses(client)
+    await client.aclose()
+
+    assert courses[0]["id"] == 1
+    assert courses[0]["roles"] == []
+
+
+@respx.mock
 async def test_my_courses_requests_active_enrolments_with_term():
     route = respx.get("https://canvas.example.edu/api/v1/courses").mock(
         return_value=httpx.Response(200, json=[])
