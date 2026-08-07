@@ -146,3 +146,47 @@ async def test_read_file_reports_unsupported_type_as_structured_error():
 
     assert result["error"] is True
     assert "photo.png" in result["message"]
+
+@respx.mock
+async def test_read_file_reports_download_http_error_as_structured_error():
+    respx.get(f"{API}/files/506").mock(
+        return_value=httpx.Response(200, json={
+            "id": 506, "display_name": "expired.txt", "content-type": "text/plain",
+            "url": "https://files.example.edu/506-expired",
+        })
+    )
+    # Simulate a 403 Forbidden on the actual file download
+    respx.get("https://files.example.edu/506-expired").mock(
+        return_value=httpx.Response(403, text="Forbidden")
+    )
+    client = CanvasClient(CFG)
+    result = await do_read_file(client, 506)
+    await client.aclose()
+
+    assert result.get("error") is True
+    assert result.get("status") == 403
+    assert "403" in result.get("message", "")
+
+
+@respx.mock
+async def test_read_file_raw_download_omits_authorization_header():
+    """Ensure the raw download request does not leak the Canvas API token."""
+    respx.get(f"{API}/files/507").mock(
+        return_value=httpx.Response(200, json={
+            "id": 507, "display_name": "secure.txt", "content-type": "text/plain",
+            "url": "https://files.example.edu/507-secure",
+        })
+    )
+    
+    # Capture the route so we can inspect the headers sent to it
+    download_route = respx.get("https://files.example.edu/507-secure").mock(
+        return_value=httpx.Response(200, content=b"Secret content")
+    )
+    
+    client = CanvasClient(CFG)
+    await do_read_file(client, 507)
+    await client.aclose()
+
+    assert download_route.called
+    request = download_route.calls.last.request
+    assert "authorization" not in request.headers

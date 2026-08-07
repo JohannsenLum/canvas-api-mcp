@@ -98,9 +98,14 @@ async def do_read_file(
 
     # The download URL is pre-signed and must NOT carry the Authorization header.
     async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as raw:
-        file_response = await raw.get(download_url)
-        file_response.raise_for_status()
-        content = file_response.content
+        try:
+            file_response = await raw.get(download_url)
+            file_response.raise_for_status()
+            content = file_response.content
+        except httpx.HTTPStatusError as exc:
+            return {"error": True, "status": exc.response.status_code, "message": f"Download failed: {exc}"}
+        except httpx.HTTPError as exc:
+            return {"error": True, "status": 0, "message": f"Download failed: {exc}"}
 
     try:
         text = extract_text(content, content_type, display_name)
