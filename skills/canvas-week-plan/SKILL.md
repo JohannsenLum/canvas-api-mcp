@@ -43,9 +43,14 @@ the user to install it first: https://mcp.johannsenlum.com/canvas-lms/install
    - Any two or more items that share the same due date/day ("same-day collision") —
      list them together so the student sees the pile-up.
 
-6. If `whats_due` returns nothing, say plainly that nothing is due in the window covered
-   by the tool — do not fabricate a "nothing due" conclusion beyond what the tool covers,
-   and mention the tool's window/limits if known.
+6. Check whether `whats_due` actually answered. If it returns `{"error": true, ...}` with
+   no `items` key, every source failed to load — that is **not** an empty schedule. Say
+   Canvas could not be reached and quote the `warnings`; never turn a failed read into
+   "nothing is due".
+
+   If it returns `items: []`, that is a real answer: say plainly that nothing is due in the
+   window covered by the tool — do not fabricate a "nothing due" conclusion beyond what the
+   tool covers, and mention the tool's window/limits if known.
 
 ## Rules
 
