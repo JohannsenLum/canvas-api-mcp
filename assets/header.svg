@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 300" width="840" height="300" role="img" aria-labelledby="t d">
+  <title id="t">canvas-api-mcp</title>
+  <desc id="d">A terminal shows two questions. "What mods am I taking this sem?" is answered instantly by the curated my_courses tool, listing CS3230, CS2040S, MA2001 and GEA1000. "What groups am I in?" has no curated tool, so search_canvas_api finds GET /v1/users/self/groups among 1,116 Canvas endpoints and canvas_request executes it. 17 tools, 1,116 endpoints reachable, 120 tests, MIT licence.</desc>
+
+  <style>
+    .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+    .dim  { fill: #7d8590; }
+    .fg   { fill: #e6edf3; }
+    .acc  { fill: #2f81f7; }
+    .ok   { fill: #3fb950; }
+    .warn { fill: #d29922; }
+    .edge { stroke: #30363d; stroke-width: 1; fill: none; }
+
+    /* One 15s timeline. Lines fade IN staggered but ALL fade OUT together at 94%,
+       so the loop never shows a half-assembled state. */
+    g[class^="ln"] { opacity: 0; }
+    .ln1 { animation: k1 15s infinite }
+    .ln2 { animation: k2 15s infinite }
+    .ln3 { animation: k3 15s infinite }
+    .ln4 { animation: k4 15s infinite }
+    .ln5 { animation: k5 15s infinite }
+    .ln6 { animation: k6 15s infinite }
+    .ln7 { animation: k7 15s infinite }
+    .ln8 { animation: k8 15s infinite }
+
+    @keyframes k1 { 0%,1% {opacity:0} 3%,94% {opacity:1} 97%,100% {opacity:0} }
+    @keyframes k2 { 0%,8% {opacity:0} 10%,94% {opacity:1} 97%,100% {opacity:0} }
+    @keyframes k3 { 0%,13% {opacity:0} 15%,94% {opacity:1} 97%,100% {opacity:0} }
+    @keyframes k4 { 0%,26% {opacity:0} 28%,94% {opacity:1} 97%,100% {opacity:0} }
+    @keyframes k5 { 0%,34% {opacity:0} 36%,94% {opacity:1} 97%,100% {opacity:0} }
+    @keyframes k6 { 0%,41% {opacity:0} 43%,94% {opacity:1} 97%,100% {opacity:0} }
+    @keyframes k7 { 0%,48% {opacity:0} 50%,94% {opacity:1} 97%,100% {opacity:0} }
+    @keyframes k8 { 0%,56% {opacity:0} 58%,94% {opacity:1} 97%,100% {opacity:0} }
+
+    .caret { animation: blink 1.1s steps(1) infinite }
+    @keyframes blink { 0%,50% {opacity:1} 51%,100% {opacity:0} }
+
+    @media (prefers-reduced-motion: reduce) {
+      g[class^="ln"] { opacity: 1; animation: none }
+      .caret { animation: none; opacity: 0 }
+    }
+  </style>
+
+  <rect fill="#0d1117" x="0.5" y="0.5" width="839" height="299" rx="10"/>
+  <rect fill="#161b22" x="0.5" y="0.5" width="839" height="34" rx="10"/>
+  <rect fill="#161b22" x="0.5" y="24" width="839" height="12"/>
+  <rect class="edge" x="0.5" y="0.5" width="839" height="299" rx="10"/>
+  <line class="edge" x1="0.5" y1="35" x2="839.5" y2="35"/>
+  <circle cx="22" cy="18" r="5.5" fill="#ff5f57"/>
+  <circle cx="42" cy="18" r="5.5" fill="#febc2e"/>
+  <circle cx="62" cy="18" r="5.5" fill="#28c840"/>
+  <text class="mono dim" x="420" y="22" font-size="12" text-anchor="middle">canvas-api-mcp</text>
+
+  <!-- beat 1 — curated fast path -->
+  <g class="ln1">
+    <text class="mono ok" x="28" y="72" font-size="15">❯</text>
+    <text class="mono fg" x="50" y="72" font-size="15">what mods am I taking this sem?</text>
+  </g>
+  <g class="ln2">
+    <text class="mono acc" x="50" y="98" font-size="13">my_courses()</text>
+    <text class="mono dim" x="162" y="98" font-size="13">curated tool — one call, no lookup</text>
+  </g>
+  <g class="ln3">
+    <text class="mono fg"  x="70" y="121" font-size="13">CS3230</text>
+    <text class="mono dim" x="132" y="121" font-size="13">·</text>
+    <text class="mono fg"  x="148" y="121" font-size="13">CS2040S</text>
+    <text class="mono dim" x="218" y="121" font-size="13">·</text>
+    <text class="mono fg"  x="234" y="121" font-size="13">MA2001</text>
+    <text class="mono dim" x="296" y="121" font-size="13">·</text>
+    <text class="mono fg"  x="312" y="121" font-size="13">GEA1000</text>
+  </g>
+
+  <!-- beat 2 — gateway -->
+  <g class="ln4">
+    <text class="mono ok" x="28" y="166" font-size="15">❯</text>
+    <text class="mono fg" x="50" y="166" font-size="15">what groups am I in?</text>
+    <rect class="caret" x="252" y="153" width="8" height="17" fill="#e6edf3"/>
+  </g>
+  <g class="ln5">
+    <text class="mono warn" x="50" y="190" font-size="12">no curated tool for this — searching 1,116 endpoints…</text>
+  </g>
+  <g class="ln6">
+    <text class="mono acc" x="50"  y="214" font-size="13">search_canvas_api</text>
+    <text class="mono dim" x="196" y="214" font-size="13">→</text>
+    <text class="mono ok"  x="220" y="214" font-size="13">GET</text>
+    <text class="mono fg"  x="256" y="214" font-size="13">/v1/users/self/groups</text>
+  </g>
+  <g class="ln7">
+    <text class="mono acc" x="50"  y="237" font-size="13">canvas_request</text>
+    <text class="mono dim" x="172" y="237" font-size="13">→</text>
+    <text class="mono ok"  x="196" y="237" font-size="13">200</text>
+    <text class="mono dim" x="236" y="237" font-size="13">found it without anyone writing a tool for it</text>
+  </g>
+
+  <g class="ln8">
+    <line class="edge" x1="28" y1="260" x2="812" y2="260"/>
+    <text class="mono dim" x="28"  y="281" font-size="12">17 tools</text>
+    <text class="mono dim" x="100" y="281" font-size="12">·</text>
+    <text class="mono fg"  x="116" y="281" font-size="12">1,116 endpoints reachable</text>
+    <text class="mono dim" x="300" y="281" font-size="12">·</text>
+    <text class="mono dim" x="316" y="281" font-size="12">120 tests</text>
+    <text class="mono dim" x="392" y="281" font-size="12">·</text>
+    <text class="mono dim" x="408" y="281" font-size="12">MIT</text>
+    <text class="mono dim" x="812" y="281" font-size="12" text-anchor="end">uvx canvas-api-mcp</text>
+  </g>
+</svg>

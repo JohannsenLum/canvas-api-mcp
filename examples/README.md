@@ -36,19 +36,18 @@ Claude Code can do it in one command, no file editing:
 claude mcp add canvas -s user \
   -e CANVAS_BASE_URL=https://canvas.nus.edu.sg \
   -e CANVAS_TOKEN=your-token-here \
-  -- uvx --from git+https://github.com/JohannsenLum/canvas-api-mcp canvas-api-mcp
+  -- uvx canvas-api-mcp
 ```
 
-Everything after `--` is the command Claude Code will spawn. The separator matters —
-without it, `--from` gets parsed as a flag to `claude mcp add` itself.
+Everything after `--` is the command Claude Code will spawn.
 
-## Once published to PyPI
+## Install from source (contributors / unreleased `main`)
 
-Every example uses `uvx --from git+https://github.com/JohannsenLum/canvas-api-mcp`,
-which works today. Once the package is on PyPI this shortens to:
+Not part of the normal install path above — only needed if you want the latest
+unreleased code instead of the published PyPI release:
 
-```jsonc
-"args": ["canvas-api-mcp"]
+```bash
+uvx --from git+https://github.com/JohannsenLum/canvas-api-mcp canvas-api-mcp
 ```
 
 ## Things to ask it

@@ -3,11 +3,7 @@
     "canvas": {
       "source": "custom",
       "command": "uvx",
-      "args": [
-        "--from",
-        "git+https://github.com/JohannsenLum/canvas-api-mcp",
-        "canvas-api-mcp"
-      ],
+      "args": ["canvas-api-mcp"],
       "env": {
         "CANVAS_BASE_URL": "https://canvas.nus.edu.sg",
         "CANVAS_TOKEN": "your-token-here"

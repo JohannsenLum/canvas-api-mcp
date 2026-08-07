@@ -2,8 +2,21 @@
 
 # canvas-api-mcp
 
+<h2 align="center">Never miss an assignment deadline again.</h2>
+
+<p align="center">
+  Ask your AI what's due and it reads the answer straight from Canvas —<br>
+  real deadlines, real submission status, no copying anything across.
+</p>
+
 An MCP server for Canvas LMS. 15 curated tools for everyday student work, plus a
 gateway that reaches every endpoint your Canvas instance exposes.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/JohannsenLum/canvas-api-mcp/main/assets/header.svg"
+       alt="Terminal. Question one: 'what mods am I taking this sem?' — answered instantly by the curated my_courses tool (CS3230, CS2040S, MA2001, GEA1000). Question two: 'what groups am I in?' — no curated tool covers it, so search_canvas_api finds GET /v1/users/self/groups among 1,116 Canvas endpoints and canvas_request executes it. 17 tools · 1,116 endpoints reachable · 120 tests · MIT."
+       width="840">
+</p>
 
 **📖 Documentation: [mcp.johannsenlum.com/canvas-lms](https://mcp.johannsenlum.com/canvas-lms)**
 — [install guide](https://mcp.johannsenlum.com/canvas-lms/install) ·
@@ -11,11 +24,11 @@ gateway that reaches every endpoint your Canvas instance exposes.
 [skills](https://mcp.johannsenlum.com/canvas-lms/skills) ·
 [compliance](https://mcp.johannsenlum.com/canvas-lms/compliance)
 
+[![PyPI](https://img.shields.io/pypi/v/canvas-api-mcp)](https://pypi.org/project/canvas-api-mcp/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/JohannsenLum/canvas-api-mcp/blob/main/LICENSE)
+[![MCP Registry](https://img.shields.io/badge/MCP_Registry-io.github.JohannsenLum%2Fcanvas--api--mcp-1f6feb)](https://registry.modelcontextprotocol.io)
 [![GitHub stars](https://img.shields.io/github/stars/JohannsenLum/canvas-api-mcp?style=social)](https://github.com/JohannsenLum/canvas-api-mcp)
-<!-- Once canvas-api-mcp is published to PyPI, add and verify it renders green (not a 404 "not found" badge):
-[![PyPI](https://img.shields.io/pypi/v/canvas-api-mcp)](https://pypi.org/project/canvas-api-mcp/) -->
 
 > **Personal-use software.** Canvas's API Policy requires OAuth for applications used
 > by multiple people, and Canvas OAuth cannot be implemented safely by locally
@@ -67,21 +80,19 @@ even though only 15 tools are hand-curated.
 
 ### Running the server
 
-The PyPI package name `canvas-api-mcp` is reserved but **not yet published**.
-Until it is, install straight from GitHub:
-
-```bash
-uvx --from git+https://github.com/JohannsenLum/canvas-api-mcp canvas-api-mcp
-```
-
-Once published, this shortens to:
+`canvas-api-mcp` is published on PyPI. Run it with:
 
 ```bash
 uvx canvas-api-mcp
 ```
 
-(`uvx canvas-api-mcp` on its own does not work yet — it will 404 against PyPI
-until the package ships. Use the `git+` form above until then.)
+**Install from source (contributors / unreleased `main`).** Not part of the
+normal install path above — only needed if you want the latest unreleased
+code instead of the published PyPI release:
+
+```bash
+uvx --from git+https://github.com/JohannsenLum/canvas-api-mcp canvas-api-mcp
+```
 
 Or run from a local clone:
 
@@ -97,9 +108,9 @@ One-click deeplinks exist for Cursor, VS Code, and LM Studio only — no other
 client has a documented install-link format. These prefill the config below but
 still need `CANVAS_BASE_URL` and `CANVAS_TOKEN` filled in afterward.
 
-[![Add to Cursor](https://img.shields.io/badge/Cursor-Add_MCP_Server-000000?style=flat-square&logo=cursor&logoColor=white)](https://cursor.com/en/install-mcp?name=canvas&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL0pvaGFubnNlbkx1bS9jYW52YXMtYXBpLW1jcCIsImNhbnZhcy1hcGktbWNwIl0sImVudiI6eyJDQU5WQVNfQkFTRV9VUkwiOiJodHRwczovL2NhbnZhcy55b3Vyc2Nob29sLmVkdSIsIkNBTlZBU19UT0tFTiI6InlvdXItdG9rZW4taGVyZSJ9fQ==)
-[![Add to VS Code](https://img.shields.io/badge/VS_Code-Install_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://vscode.dev/redirect/mcp/install?name=canvas&config=%7B%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22git%2Bhttps%3A%2F%2Fgithub.com%2FJohannsenLum%2Fcanvas-api-mcp%22%2C%22canvas-api-mcp%22%5D%2C%22env%22%3A%7B%22CANVAS_BASE_URL%22%3A%22https%3A%2F%2Fcanvas.yourschool.edu%22%2C%22CANVAS_TOKEN%22%3A%22your-token-here%22%7D%7D)
-[![Add to LM Studio](https://img.shields.io/badge/LM_Studio-Add_MCP_Server-6C4FE0?style=flat-square)](lmstudio://add_mcp?name=canvas&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL0pvaGFubnNlbkx1bS9jYW52YXMtYXBpLW1jcCIsImNhbnZhcy1hcGktbWNwIl0sImVudiI6eyJDQU5WQVNfQkFTRV9VUkwiOiJodHRwczovL2NhbnZhcy55b3Vyc2Nob29sLmVkdSIsIkNBTlZBU19UT0tFTiI6InlvdXItdG9rZW4taGVyZSJ9fQ==)
+[![Add to Cursor](https://img.shields.io/badge/Cursor-Add_MCP_Server-000000?style=flat-square&logo=cursor&logoColor=white)](https://cursor.com/en/install-mcp?name=canvas&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyJjYW52YXMtYXBpLW1jcCJdLCJlbnYiOnsiQ0FOVkFTX0JBU0VfVVJMIjoiaHR0cHM6Ly9jYW52YXMueW91cnNjaG9vbC5lZHUiLCJDQU5WQVNfVE9LRU4iOiJ5b3VyLXRva2VuLWhlcmUifX0=)
+[![Add to VS Code](https://img.shields.io/badge/VS_Code-Install_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://vscode.dev/redirect/mcp/install?name=canvas&config=%7B%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22canvas-api-mcp%22%5D%2C%22env%22%3A%7B%22CANVAS_BASE_URL%22%3A%22https%3A%2F%2Fcanvas.yourschool.edu%22%2C%22CANVAS_TOKEN%22%3A%22your-token-here%22%7D%7D)
+[![Add to LM Studio](https://img.shields.io/badge/LM_Studio-Add_MCP_Server-6C4FE0?style=flat-square)](lmstudio://add_mcp?name=canvas&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyJjYW52YXMtYXBpLW1jcCJdLCJlbnYiOnsiQ0FOVkFTX0JBU0VfVVJMIjoiaHR0cHM6Ly9jYW52YXMueW91cnNjaG9vbC5lZHUiLCJDQU5WQVNfVE9LRU4iOiJ5b3VyLXRva2VuLWhlcmUifX0=)
 
 ### All clients (manual config)
 
@@ -125,10 +136,7 @@ transmitted anywhere except directly to your Canvas instance.
   "mcpServers": {
     "canvas": {
       "command": "uvx",
-      "args": [
-        "--from", "git+https://github.com/JohannsenLum/canvas-api-mcp",
-        "canvas-api-mcp"
-      ],
+      "args": ["canvas-api-mcp"],
       "env": {
         "CANVAS_BASE_URL": "https://canvas.yourschool.edu",
         "CANVAS_TOKEN": "your-token-here"
@@ -138,7 +146,6 @@ transmitted anywhere except directly to your Canvas instance.
 }
 ```
 
-Once published to PyPI, `args` simplifies to `["canvas-api-mcp"]`.
 </details>
 
 <a id="config-claude-desktop"></a>
@@ -156,10 +163,7 @@ deeplinks) — copy this JSON in via **Settings → Developer → Edit Config**:
   "mcpServers": {
     "canvas": {
       "command": "uvx",
-      "args": [
-        "--from", "git+https://github.com/JohannsenLum/canvas-api-mcp",
-        "canvas-api-mcp"
-      ],
+      "args": ["canvas-api-mcp"],
       "env": {
         "CANVAS_BASE_URL": "https://canvas.yourschool.edu",
         "CANVAS_TOKEN": "your-token-here"
@@ -181,10 +185,7 @@ Fallback for the button above, or if you'd rather paste it directly:
   "mcpServers": {
     "canvas": {
       "command": "uvx",
-      "args": [
-        "--from", "git+https://github.com/JohannsenLum/canvas-api-mcp",
-        "canvas-api-mcp"
-      ],
+      "args": ["canvas-api-mcp"],
       "env": {
         "CANVAS_BASE_URL": "https://canvas.yourschool.edu",
         "CANVAS_TOKEN": "your-token-here"
@@ -208,10 +209,7 @@ Code uses a `servers` key, not `mcpServers`:
     "canvas": {
       "type": "stdio",
       "command": "uvx",
-      "args": [
-        "--from", "git+https://github.com/JohannsenLum/canvas-api-mcp",
-        "canvas-api-mcp"
-      ],
+      "args": ["canvas-api-mcp"],
       "env": {
         "CANVAS_BASE_URL": "https://canvas.yourschool.edu",
         "CANVAS_TOKEN": "your-token-here"
@@ -233,10 +231,7 @@ Fallback for the button above, or if you'd rather paste it directly:
   "mcpServers": {
     "canvas": {
       "command": "uvx",
-      "args": [
-        "--from", "git+https://github.com/JohannsenLum/canvas-api-mcp",
-        "canvas-api-mcp"
-      ],
+      "args": ["canvas-api-mcp"],
       "env": {
         "CANVAS_BASE_URL": "https://canvas.yourschool.edu",
         "CANVAS_TOKEN": "your-token-here"
@@ -260,10 +255,7 @@ settings:
     "canvas": {
       "source": "custom",
       "command": "uvx",
-      "args": [
-        "--from", "git+https://github.com/JohannsenLum/canvas-api-mcp",
-        "canvas-api-mcp"
-      ],
+      "args": ["canvas-api-mcp"],
       "env": {
         "CANVAS_BASE_URL": "https://canvas.yourschool.edu",
         "CANVAS_TOKEN": "your-token-here"
@@ -287,10 +279,7 @@ Servers → Edit raw config**:
   "mcpServers": {
     "canvas": {
       "command": "uvx",
-      "args": [
-        "--from", "git+https://github.com/JohannsenLum/canvas-api-mcp",
-        "canvas-api-mcp"
-      ],
+      "args": ["canvas-api-mcp"],
       "env": {
         "CANVAS_BASE_URL": "https://canvas.yourschool.edu",
         "CANVAS_TOKEN": "your-token-here"
