@@ -41,10 +41,10 @@ concurrency:
 jobs:
   telegram:
     runs-on: ubuntu-latest
-    # Don't ping the maintainer about their own activity, or about bots.
-    if: >-
-      github.actor != github.repository_owner &&
-      github.event.sender.type != 'Bot'
+    # Bots are still filtered out; your own activity is not. Own activity is marked
+    # "(you)" and left unbold in the payload below, so a real contributor's message
+    # still stands out at a glance rather than drowning in your own noise.
+    if: github.event.sender.type != 'Bot'
     steps:
       - name: Send Telegram message
         env:
@@ -53,6 +53,7 @@ jobs:
           # Everything below is untrusted input — env, never inline interpolation.
           KIND: ${{ github.event_name }}
           ACTOR: ${{ github.event.sender.login }}
+          IS_OWNER: ${{ github.event.sender.login == github.repository_owner }}
           REPO: ${{ github.repository }}
           NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
           TITLE: ${{ github.event.issue.title || github.event.pull_request.title }}
@@ -96,8 +97,14 @@ jobs:
               return html.escape(value[:limit], quote=False)
 
           icon, what = os.environ["ICON"], os.environ["WHAT"]
+
+          # Someone else's activity is bold so it stands out in a busy chat; your own
+          # is plain and tagged, so the channel stays scannable once you're in it too.
+          actor = esc(os.environ["ACTOR"], 80)
+          who = f"{actor} <i>(you)</i>" if os.environ.get("IS_OWNER") == "true" else f"<b>{actor}</b>"
+
           lines = [
-              f'{icon} <b>{esc(os.environ["ACTOR"], 80)}</b> {what}',
+              f'{icon} {who} {what}',
               f'<code>{esc(os.environ["REPO"], 120)}</code> #{esc(os.environ["NUMBER"], 12)}',
               "",
               esc(os.environ["TITLE"], 200),
