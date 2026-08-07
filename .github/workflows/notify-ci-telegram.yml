@@ -1,0 +1,105 @@
+name: Notify Telegram (CI)
+
+# Pings Telegram when CI or the publish pipeline finishes — but only when the
+# outcome is worth interrupting someone for.
+#
+# WHAT IT SENDS:
+#   - Test failed on main            → something broke on the default branch
+#   - Publish finished (either way)  → a release either shipped or didn't
+#
+# WHAT IT DELIBERATELY DOES NOT SEND:
+#   - Test passing on main. Green is the expected state; announcing it trains you
+#     to ignore the channel, and then the red one gets ignored too.
+#   - Test failing on a PR. The contributor sees that on their own PR, and it is
+#     their job to fix before you look.
+#   - Run started / in progress. You cannot act on "it began".
+#
+# SECURITY: `workflow_run` always executes in the base-repo context, never with
+# PR code, so secrets are safe here. As with notify-telegram.yml, do NOT add a
+# checkout step, and keep untrusted values in `env:` rather than interpolating
+# them into `run:`.
+
+on:
+  workflow_run:
+    workflows: [Test, Publish]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  telegram:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.workflow_run.name == 'Publish' ||
+      (github.event.workflow_run.conclusion != 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+    steps:
+      - name: Send Telegram message
+        env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+          WF_NAME: ${{ github.event.workflow_run.name }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          COMMIT_MSG: ${{ github.event.workflow_run.head_commit.message }}
+          ACTOR: ${{ github.event.workflow_run.actor.login }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${TG_TOKEN:-}" ] || [ -z "${TG_CHAT:-}" ]; then
+            echo "Telegram secrets not set — skipping."
+            exit 0
+          fi
+
+          # export, not plain assignment — the python heredoc is a subprocess.
+          case "$CONCLUSION" in
+            success)   export ICON="✅" ;;
+            failure)   export ICON="❌" ;;
+            cancelled) export ICON="⚪" ;;
+            *)         export ICON="⚠️" ;;
+          esac
+
+          python3 - <<'PY' > /tmp/ci_payload.json
+          import html, json, os
+
+          # Telegram's HTML mode allows only b/i/u/s/a/code/pre. Anything else
+          # returns 400 "can't parse entities" and the message silently vanishes,
+          # so escape every value that came from a human.
+          def esc(v, n):
+              return html.escape((v or "")[:n], quote=False)
+
+          wf = os.environ["WF_NAME"]
+          concl = os.environ["CONCLUSION"]
+          # First line of the commit message only — bodies are long and noisy.
+          subject = (os.environ.get("COMMIT_MSG") or "").splitlines()
+          subject = subject[0] if subject else ""
+
+          if wf == "Publish" and concl == "success":
+              headline = "🚀 <b>Published</b> — PyPI and the MCP registry"
+          else:
+              headline = f'{os.environ["ICON"]} <b>{esc(wf, 40)}</b> {esc(concl, 20)}'
+
+          lines = [
+              headline,
+              f'<code>{esc(os.environ["REPO"], 120)}</code> · {esc(os.environ["BRANCH"], 60)}',
+          ]
+          if subject:
+              lines += ["", esc(subject, 160)]
+          lines += ["", os.environ["RUN_URL"]]
+
+          print(json.dumps({
+              "chat_id": os.environ["TG_CHAT"],
+              "text": "\n".join(lines),
+              "parse_mode": "HTML",
+              "disable_web_page_preview": True,
+          }))
+          PY
+
+          curl -sS --fail-with-body --max-time 20 \
+            -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+            -H 'Content-Type: application/json' \
+            -d @/tmp/ci_payload.json > /dev/null
+
+          echo "Notified: $WF_NAME $CONCLUSION on $BRANCH"
