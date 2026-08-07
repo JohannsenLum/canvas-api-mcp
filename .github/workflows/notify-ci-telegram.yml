@@ -38,6 +38,9 @@ jobs:
         env:
           TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Deployment/CI noise goes to its own forum topic, separate from the
+          # contributor-facing GitHub one. Unset -> posts to General.
+          TG_TOPIC: ${{ vars.TELEGRAM_TOPIC_DEVOPS }}
           WF_NAME: ${{ github.event.workflow_run.name }}
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           BRANCH: ${{ github.event.workflow_run.head_branch }}
@@ -89,12 +92,18 @@ jobs:
               lines += ["", esc(subject, 160)]
           lines += ["", os.environ["RUN_URL"]]
 
-          print(json.dumps({
+          payload = {
               "chat_id": os.environ["TG_CHAT"],
               "text": "\n".join(lines),
               "parse_mode": "HTML",
               "disable_web_page_preview": True,
-          }))
+          }
+          # Only send message_thread_id when a topic is configured: passing it to a
+          # non-forum chat is a 400, so an unset variable must mean "omit", not "0".
+          topic = (os.environ.get("TG_TOPIC") or "").strip()
+          if topic:
+              payload["message_thread_id"] = int(topic)
+          print(json.dumps(payload))
           PY
 
           curl -sS --fail-with-body --max-time 20 \

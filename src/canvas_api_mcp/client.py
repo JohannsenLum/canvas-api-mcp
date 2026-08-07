@@ -186,7 +186,20 @@ class CanvasClient:
             if self._quota_low:
                 await self._sleep(THROTTLE_PAUSE_SECONDS)
 
-            response = await self._client.request(method, url, params=params, json=json)
+            try:
+                response = await self._client.request(method, url, params=params, json=json)
+            except httpx.HTTPError as exc:
+                # Everything self._client.request can raise here is transport-level
+                # (DNS, connection refused, timeout, ...) — httpx only raises
+                # HTTPStatusError if you ask it to via raise_for_status(), which we
+                # don't. A bad CANVAS_BASE_URL is the most likely first-time mistake,
+                # so name it explicitly rather than letting an errno string surface.
+                raise CanvasError(
+                    0,
+                    f"Could not reach {self._config.base_url} ({exc}).",
+                    "Check that CANVAS_BASE_URL is correct and the host is "
+                    "reachable from this machine.",
+                ) from exc
             self._note_quota(response)
 
             transient = response.status_code >= 500 or _is_rate_limited(response)
