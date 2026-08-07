@@ -7,6 +7,11 @@ from canvas_api_mcp.config import Config
 from canvas_api_mcp.tools.gateway import do_request, do_search
 
 CFG = Config(base_url="https://canvas.example.edu", token="tok", max_pages=10)
+SMALL = Config(base_url="https://canvas.example.edu", token="tok", max_pages=2)
+
+
+def _link(url: str) -> str:
+    return f'<{url}>; rel="next"'
 
 
 async def test_do_search_finds_the_todo_endpoint():
@@ -45,6 +50,28 @@ async def test_request_executes_and_reports_truncation():
 
     assert result["data"] == [{"id": 1}]
     assert result["truncated"] is False
+
+
+@respx.mock
+async def test_request_reports_truncation_when_max_pages_is_exceeded():
+    base = "https://canvas.example.edu/api/v1/courses"
+    respx.get(base, params={"page": "1"}).mock(
+        return_value=httpx.Response(
+            200, json=[{"id": 1}], headers={"Link": _link(f"{base}?page=2")}
+        )
+    )
+    respx.get(base, params={"page": "2"}).mock(
+        return_value=httpx.Response(
+            200, json=[{"id": 2}], headers={"Link": _link(f"{base}?page=3")}
+        )
+    )
+    client = CanvasClient(SMALL)
+    result = await do_request(client, "GET", "courses", params={"page": "1"})
+    await client.aclose()
+
+    assert result["data"] == [{"id": 1}, {"id": 2}]
+    assert result["truncated"] is True
+    assert result["pages_fetched"] == 2
 
 
 @respx.mock
