@@ -105,6 +105,27 @@ def _normalise_path(path: str) -> str:
     return "/api/v1" + p
 
 
+def _same_origin(candidate: str, base_url: str) -> bool:
+    """True if `candidate` targets the same scheme/host/port as `base_url`.
+
+    A relative URL (no host) is same-origin by definition: httpx resolves it
+    against the client's base_url.
+    """
+    try:
+        target = httpx.URL(candidate)
+    except (httpx.InvalidURL, ValueError):
+        return False
+    if not target.host:
+        return True
+    base = httpx.URL(base_url)
+    # httpx normalises away default ports, so :443 and an absent port compare equal.
+    return (
+        target.scheme.lower() == base.scheme.lower()
+        and target.host.lower() == base.host.lower()
+        and target.port == base.port
+    )
+
+
 def _next_link(response: httpx.Response) -> str | None:
     """Parse the RFC 5988 Link header and return the rel="next" URL."""
     header = response.headers.get("Link")
@@ -275,6 +296,13 @@ class CanvasClient:
 
             next_url = _next_link(response)
             if next_url is None:
+                break
+            # The Link header is server-controlled, and every request carries the
+            # Authorization header — so following an off-origin "next" would hand
+            # the user's Canvas token to whatever host that header names. Stop
+            # instead, and report it as truncation rather than failing the call.
+            if not _same_origin(next_url, self._config.base_url):
+                truncated = True
                 break
             if pages >= self._config.max_pages:
                 truncated = True
