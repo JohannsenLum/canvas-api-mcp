@@ -111,7 +111,11 @@ async def test_get_assignment_includes_submission_and_rubric():
             "id": 1, "name": "PS1", "description": "<p>Do it</p>",
             "due_at": "2026-08-12T15:59:00Z", "points_possible": 20,
             "rubric": [{"description": "Correctness", "points": 15}],
-            "submission": {"workflow_state": "unsubmitted"},
+            "submission": {
+                "workflow_state": "unsubmitted",
+                "submission_comments": [{"comment": "nudge"}],
+                "rubric_assessment": {"_123": {"points": 15}},
+            },
         })
     )
     client = CanvasClient(CFG)
@@ -120,7 +124,11 @@ async def test_get_assignment_includes_submission_and_rubric():
 
     assert result["name"] == "PS1"
     assert result["rubric"][0]["description"] == "Correctness"
-    assert "submission" in route.calls[0].request.url.params.get_list("include[]")
+    includes = route.calls[0].request.url.params.get_list("include[]")
+    assert "submission" in includes
+    assert "submission_comments" in includes
+    assert "rubric_assessment" in includes
+    assert result["submission"]["submission_comments"][0]["comment"] == "nudge"
 
 
 @respx.mock

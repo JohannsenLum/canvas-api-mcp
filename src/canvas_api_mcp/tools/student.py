@@ -251,7 +251,7 @@ async def do_get_assignment(
     response = await client.request(
         "GET",
         f"courses/{course_id}/assignments/{assignment_id}",
-        params={"include[]": ["submission"]},
+        params={"include[]": ["submission", "submission_comments", "rubric_assessment"]},
     )
     assignment = response.data or {}
     return {
