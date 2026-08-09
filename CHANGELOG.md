@@ -7,6 +7,36 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-08-09
+
+### Fixed
+
+- **`read_discussion` no longer crashes on deeply nested reply chains.** `_flatten`
+  recursed once per nesting level, so a thread nested past Python's recursion limit
+  raised `RecursionError` and the whole tool call died. The measured ceiling was 997
+  replies. That is reachable in practice, because students reply to the latest message
+  rather than the root, which builds a deep chain rather than wide siblings, and it
+  failed hardest on the busiest threads. Now traverses with an explicit stack, so the
+  limit is memory rather than 997. Contributed by @jiahao6635 in #31, closing #15.
+
+### Changed
+
+- **Every em-dash removed** from tool descriptions, error messages, prompts and
+  documentation. Some of these strings are user-visible, which is why this is a
+  release rather than a tidy-up. No wording changed meaning.
+
+### Added
+
+- `CODE_OF_CONDUCT.md`, carrying two rules specific to this project: never post a real
+  access token, calendar feed URL or signed download link, and never include another
+  person's Canvas data in a bug report.
+
+### Docs
+
+- `CONTRIBUTING.md` told contributors to run `scripts/build_catalog.py`, which stopped
+  being the entry point in 0.0.3 when regeneration moved inside the package. Documents
+  `canvas-api-mcp-build-catalog` and the catalog resolution order instead.
+
 ## [0.0.3] - 2026-08-08
 
 Three of these are credential-handling fixes. None were exploited, and none
