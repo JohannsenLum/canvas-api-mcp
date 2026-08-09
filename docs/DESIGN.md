@@ -1,4 +1,4 @@
-# canvas-api-mcp — Design
+# canvas-api-mcp: Design
 
 **Date:** 2026-08-07
 **Status:** Approved design, pending implementation plan
@@ -22,7 +22,7 @@ every tool live-testable by the author. See Compliance.
   endpoint and will work for anyone holding a teacher token. Curated educator tools are an
   ergonomics layer, deferred to phase 2 (see Roadmap).
 - **No hosted/shared deployment.** Every user runs their own local process with their own
-  token. Hosting would mean custodying other people's Canvas credentials — high liability,
+  token. Hosting would mean custodying other people's Canvas credentials: high liability,
   no offsetting benefit.
 - **No institution-specific hardcoding.** NUS is the first test instance, not the target.
 - **Not competing on curated-tool count** with existing Canvas MCP servers. The tool
@@ -64,14 +64,14 @@ Instructure ships an endpoint.
 
 Three layers.
 
-**Layer 1 — Curated tools (16).** Named after jobs, not endpoints. Carry real ergonomics:
+**Layer 1: Curated tools (16).** Named after jobs, not endpoints. Carry real ergonomics:
 `whats_due()` fans out to multiple endpoints and merges results, because that is what the
 question means.
 
-**Layer 2 — Discovery.** `search_canvas_api(query)` ranks matches over an embedded catalog
+**Layer 2: Discovery.** `search_canvas_api(query)` ranks matches over an embedded catalog
 of all 1,116 endpoints (method, path, nickname, summary, parameters).
 
-**Layer 3 — Passthrough.** `canvas_request(method, path, params, body, dry_run)` executes
+**Layer 3: Passthrough.** `canvas_request(method, path, params, body, dry_run)` executes
 any endpoint the search surfaces, subject to whatever the caller's token permits.
 
 Result: complete API reach at 18 tool schemas (16 curated + 2 gateway).
@@ -87,7 +87,7 @@ Result: complete API reach at 18 tool schemas (16 curated + 2 gateway).
 
 Authorisation is Canvas's job, not the server's. Every request carries the user's token and
 Canvas decides what it permits. The server never simulates, predicts, or pre-filters
-permissions — it surfaces Canvas's answer.
+permissions: it surfaces Canvas's answer.
 
 The server still detects identity for *ergonomics*: on first use it calls
 `GET /v1/users/{id}` (`id=self`) and `GET /v1/users/{user_id}/enrollments`
@@ -163,7 +163,7 @@ The foundation every tool goes through.
 - **Rate limiting:** Canvas uses a leaky-bucket quota and returns `X-Rate-Limit-Remaining`.
   The client throttles as that value approaches zero and backs off on the 403 "Rate Limit
   Exceeded" response, distinguished from a genuine permission 403 by inspecting the body.
-  This is a compliance requirement, not an optimisation — see Compliance.
+  This is a compliance requirement, not an optimisation: see Compliance.
 - **Retries:** exponential backoff on 429 and 5xx; no retry on 4xx.
 - **Error translation:** every Canvas error becomes an actionable message.
   - `401` -> token invalid or expired; how to mint a new one
@@ -266,13 +266,13 @@ with an actionable message naming the variable and how to obtain a token.
 Because phase 1 is student-scoped, every tool is exercisable with the author's own token.
 No mock-only surface.
 
-- **Unit tests** (`test_client.py`) — recorded Canvas responses covering `Link`-header
+- **Unit tests** (`test_client.py`): recorded Canvas responses covering `Link`-header
   pagination, rate-limit backoff, and each error-translation branch.
-- **Catalog tests** (`test_catalog.py`) — parse and search behaviour against a checked-in
+- **Catalog tests** (`test_catalog.py`): parse and search behaviour against a checked-in
   spec sample.
-- **Tool tests** (`test_tools.py`) — each tool's request construction and response shaping,
+- **Tool tests** (`test_tools.py`): each tool's request construction and response shaping,
   against fixtures.
-- **Live smoke tests** — real calls against the author's student token, skipped unless
+- **Live smoke tests**: real calls against the author's student token, skipped unless
   `CANVAS_LIVE_TESTS=1`, never run in CI. Read-only; write tools are verified via `dry_run`.
 
 ## Compliance
@@ -286,31 +286,31 @@ This produces a hard boundary in the project's rollout:
 
 | Activity | Position |
 |---|---|
-| Author using their own token on their own data | Sanctioned — the documented use of manual tokens |
+| Author using their own token on their own data | Sanctioned, the documented use of manual tokens |
 | Publishing source code | Fine |
 | Instructing other users to mint tokens and paste them | **Contravenes Canvas API Policy** |
 
 **Therefore: phase 1 is for personal use and source publication only.** Publishing source is
-unaffected — code is not a Canvas integration until someone runs it. General distribution
+unaffected: code is not a Canvas integration until someone runs it. General distribution
 requires an answer to how other users authenticate, which is not purely a coding decision;
 see Roadmap.
 
-Tokens never reach the author under any configuration — each user's token stays in their own
+Tokens never reach the author under any configuration: each user's token stays in their own
 MCP client config on their own machine. This removes credential-custody risk but does not
 resolve the policy point above, which concerns the instruction to mint tokens, not their
 storage location.
 
 Other obligations reflected in the design:
 
-- **Rate limiting** — the API Policy prohibits interfering with or overloading systems. The
+- **Rate limiting**: the API Policy prohibits interfering with or overloading systems. The
   client's `X-Rate-Limit-Remaining` throttling is a compliance requirement and must not be
   removed or made optional.
-- **Academic integrity** — the API Policy prohibits use violating academic integrity
+- **Academic integrity**: the API Policy prohibits use violating academic integrity
   policies. `submit_assignment` is the relevant surface; the README must carry an explicit
   note that submitting AI-generated work may breach institutional rules.
-- **Copyright** — `read_file` retrieves course materials for the user's own study. The tool
+- **Copyright**: `read_file` retrieves course materials for the user's own study. The tool
   must not cache to a shared location, and the README must not encourage redistribution.
-- **Personal data** — a student token reaches only the user's own data, so no third-party
+- **Personal data**: a student token reaches only the user's own data, so no third-party
   personal data is processed in phase 1. This changes in phase 2 and must be revisited then,
   including Singapore PDPA obligations and NUS data-classification rules for transferring
   student data to external AI services.
@@ -319,29 +319,29 @@ Not legal advice. NUS IT should be consulted before distribution.
 
 ## Roadmap
 
-**Phase 1 (this spec)** — student-scoped curated tools, gateway, personal use.
+**Phase 1 (this spec)**: student-scoped curated tools, gateway, personal use.
 
-**Phase 2 — distribution.** Blocked on an authentication answer, not on code.
+**Phase 2: distribution.** Blocked on an authentication answer, not on code.
 
 Canvas OAuth2 does not support PKCE or public clients. Verified against
 `instructure/canvas-lms:doc/api/oauth.md` and `doc/api/oauth_endpoints.md`: no
 `code_challenge`, `code_verifier`, or public-client handling appears in either file, and
 `client_secret` is required for the token exchange. Locally installed software therefore
 cannot implement Canvas OAuth without embedding an extractable `client_secret` in every
-copy — worse than personal tokens, not better.
+copy, worse than personal tokens, not better.
 
 The remaining options, none of which the author can choose unilaterally:
 
 | Option | Requires |
 |---|---|
 | Institution-issued developer key, configured per install | An NUS Canvas admin to issue a key and accept the shared-secret model |
-| Hosted service holding the secret | Operating infrastructure and custodying credentials — rejected in Non-goals |
+| Hosted service holding the secret | Operating infrastructure and custodying credentials, rejected in Non-goals |
 | Continue with personal tokens | Accepting that this contravenes the API Policy sentence on instructing users to mint tokens |
 
 Next action is to ask NUS IT how they would prefer students to use this, rather than to pick
 an approach and present it as settled.
 
-**Phase 3 — educator support.** Curated grading and course-management tools. Gated on phase
+**Phase 3: educator support.** Curated grading and course-management tools. Gated on phase
 2 plus a PDPA and NUS data-governance review, because educator use processes other people's
 personal data.
 

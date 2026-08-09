@@ -26,7 +26,7 @@ async def do_get_calendar_feed_url(client: CanvasClient) -> dict:
             "This URL is a bearer credential: anyone holding it can read the "
             "user's full Canvas calendar with no authentication, and it does "
             "not expire when the access token is rotated. Treat it like a "
-            "password — do not paste it anywhere untrusted."
+            "password. Do not paste it anywhere untrusted."
         ),
     }
 
@@ -68,12 +68,12 @@ def register(mcp: FastMCP, get_client) -> None:
 
     @mcp.tool(
         description=(
-            "Fetch the user's private calendar .ics subscription URL — a link they "
+            "Fetch the user's private calendar .ics subscription URL, a link they "
             "can add to Google/Apple/Outlook calendar to see every Canvas deadline "
             "natively. This URL is a bearer credential: whoever holds it can read the "
             "user's full calendar with no authentication, and it survives token "
             "rotation. Only call this when the user has explicitly asked for their "
-            "calendar feed / subscription link — do not call it as part of general "
+            "calendar feed / subscription link. Do not call it as part of general "
             "orientation, and do not repeat the URL back unless asked to."
         ),
         annotations=ToolAnnotations(

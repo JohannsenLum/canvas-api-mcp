@@ -7,7 +7,7 @@ venv/
 dist/
 build/
 
-# Environment — never commit a Canvas token
+# Environment: never commit a Canvas token
 .env
 .env.local
 
@@ -16,7 +16,7 @@ build/
 .ruff_cache/
 .mypy_cache/
 .DS_Store
-# Vercel — CLI project link AND project-local auth store
+# Vercel: CLI project link AND project-local auth store
 .vercel
 .vercel-auth/
 

@@ -7,7 +7,7 @@ body:
       value: |
         Before requesting a new **tool**, check whether the gateway already covers it.
         `search_canvas_api` plus `canvas_request` reach all 1,116 Canvas endpoints, so
-        most things are already possible — just less convenient.
+        most things are already possible, just less convenient.
 
         Curated tools are deliberately few. Every one costs context on every turn for
         every user, so the bar is "people ask this often", not "this is possible".
@@ -35,16 +35,16 @@ body:
     attributes:
       label: What role does this need
       options:
-        - Student — my own data only
-        - Educator — teacher or TA in a course
-        - Admin — account-level
+        - Student: my own data only
+        - Educator: teacher or TA in a course
+        - Admin: account-level
     validations:
       required: true
 
   - type: markdown
     attributes:
       value: |
-        Educator and admin features are deferred to a later phase — not because they're
+        Educator and admin features are deferred to a later phase, not because they're
         hard, but because they process other people's personal data, which needs a data
         governance conversation first. See
         [docs/DESIGN.md](https://github.com/JohannsenLum/canvas-api-mcp/blob/main/docs/DESIGN.md).

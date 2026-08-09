@@ -25,7 +25,7 @@ body:
     attributes:
       label: Error message or tool output
       description: >
-        Paste the full message. Redact anything that looks like a token — a long string
+        Paste the full message. Redact anything that looks like a token: a long string
         starting with a number and a tilde.
       render: text
 

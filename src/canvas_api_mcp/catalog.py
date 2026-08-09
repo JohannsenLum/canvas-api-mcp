@@ -30,7 +30,7 @@ def _default_catalog_path() -> Path:
 DEFAULT_CATALOG = _default_catalog_path()
 
 # Where `main()` writes to by default, and where load_catalog() looks if
-# CANVAS_CATALOG_PATH isn't set — so `canvas-api-mcp-build-catalog <url>`
+# CANVAS_CATALOG_PATH isn't set, so `canvas-api-mcp-build-catalog <url>`
 # with no flags is enough to make a school's own catalog take over with
 # zero extra configuration (see issue #9).
 CACHE_CATALOG_PATH = Path.home() / ".cache" / "canvas-api-mcp" / "catalog.json"
@@ -119,8 +119,8 @@ def search(
 # it into a pip/uvx install. scripts/build_catalog.py is kept as a thin
 # wrapper around this for source checkouts (see that file).
 #
-# fetch/parse/write are kept separate so parse_swagger() — the part with
-# actual logic — can be tested against a plain fixture, with no network
+# fetch/parse/write are kept separate so parse_swagger() (the part with
+# actual logic) can be tested against a plain fixture, with no network
 # and no respx involved.
 
 DOC_ROOT = "/doc/api"
@@ -131,7 +131,7 @@ def fetch_raw_docs(base_url: str, timeout: float = 40.0) -> dict:
 
     Every Canvas instance serves this at /doc/api/api-docs.json, so the
     result reflects that deployment's version and enabled feature set
-    exactly. Network-only — feed the result to parse_swagger() for entries.
+    exactly. Network-only. Feed the result to parse_swagger() for entries.
     """
     base = base_url.rstrip("/")
     with httpx.Client(timeout=timeout, follow_redirects=True) as client:
@@ -177,7 +177,7 @@ def write_catalog(entries: list[dict], out: Path) -> None:
 
 
 def build_catalog(base_url: str, timeout: float = 40.0) -> list[dict]:
-    """Fetch + parse in one call — the convenience path most callers want."""
+    """Fetch + parse in one call: the convenience path most callers want."""
     return parse_swagger(fetch_raw_docs(base_url, timeout=timeout))
 
 

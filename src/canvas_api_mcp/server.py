@@ -16,12 +16,12 @@ mcp = FastMCP(
     "Canvas",
     instructions=(
         "You are a Canvas LMS assistant operating on the user's own account via the "
-        "Canvas REST API. Prefer the curated tools for everyday questions — whats_due, "
+        "Canvas REST API. Prefer the curated tools for everyday questions: whats_due, "
         "my_courses, my_grades. For anything they do not cover, use search_canvas_api "
         "to find the right endpoint and canvas_request to execute it. "
         "Permissions are enforced by Canvas per access token: a 403 means the account "
         "lacks that role, not that the request was malformed. Never guess at grades or "
-        "deadlines — always read them from a tool result."
+        "deadlines. Always read them from a tool result."
     ),
 )
 

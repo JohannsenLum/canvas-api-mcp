@@ -5,7 +5,7 @@ Every Canvas instance serves its API docs at /doc/api/api-docs.json, so the
 catalog matches that deployment's version and enabled feature set exactly.
 
 This is a thin wrapper for source checkouts. The actual implementation lives
-in canvas_api_mcp.catalog so it also ships inside the installed package —
+in canvas_api_mcp.catalog so it also ships inside the installed package:
 pip/uvx installs get it as the `canvas-api-mcp-build-catalog` command with
 no git checkout required (see issue #9).
 

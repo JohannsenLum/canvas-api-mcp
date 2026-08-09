@@ -75,7 +75,7 @@ async def test_non_json_response_raises_canvas_error():
         ("/courses", "/api/v1/courses"),
         ("/v1/courses", "/api/v1/courses"),
         ("/v1", "/api/v1"),
-        # already explicit — passed through untouched
+        # already explicit, passed through untouched
         ("/api/v1/courses", "/api/v1/courses"),
         ("/api/v1", "/api/v1"),
         ("/api/graphql", "/api/graphql"),
@@ -97,7 +97,7 @@ def test_normalise_path_resolves_expected(given, expected):
 @pytest.mark.parametrize(
     "hostile",
     [
-        "https://evil.example.com/steal",   # absolute URL — would send the token elsewhere
+        "https://evil.example.com/steal",   # absolute URL, would send the token elsewhere
         "http://evil.example.com/steal",
         "ftp://evil.example.com/steal",
         "/api/../../../etc/passwd",         # traversal out of /api

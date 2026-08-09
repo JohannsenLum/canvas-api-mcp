@@ -13,7 +13,7 @@ def token_help(base_url: str | None = None) -> str:
     settings = f"{base_url}/profile/settings" if base_url else "<your-canvas>/profile/settings"
     return (
         f"Create one at {settings} -> Approved Integrations -> '+ New access token'. "
-        "Set an expiry rather than leaving it blank, and copy the token immediately — "
+        "Set an expiry rather than leaving it blank, and copy the token immediately. "
         "Canvas shows it only once. Then put it in your MCP client config, e.g. "
         '"env": {"CANVAS_TOKEN": "..."}. '
         f"Full walkthrough: {SETUP_GUIDE_URL}"

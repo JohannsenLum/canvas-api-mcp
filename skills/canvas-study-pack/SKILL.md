@@ -5,7 +5,7 @@ description: Gathers and summarises Canvas LMS course material on a specific top
 
 # Canvas Study Pack
 
-Read-only research and summarisation skill. Never modify, submit, or post anything —
+Read-only research and summarisation skill. Never modify, submit, or post anything:
 only report what the canvas-api-mcp tools return.
 
 ## Prerequisites
@@ -29,7 +29,7 @@ https://mcp.johannsenlum.com/canvas-lms/install
 
 4. **Read the most relevant file(s).** Call `read_file` on the file(s) that best match
    the topic based on filename/context from step 3. Read more than one file if several
-   are plausibly relevant — do not settle for a single weak match if better candidates
+   are plausibly relevant. Do not settle for a single weak match if better candidates
    exist in the list.
 
 5. **Summarise, grounded only in what was read:**
@@ -40,12 +40,12 @@ https://mcp.johannsenlum.com/canvas-lms/install
    - Do NOT supplement with general knowledge about the topic, even if you "know" more
      about it. If the retrieved material is thin, the summary should be thin.
    - If the material available (via `list_files`/`course_content`) does not cover some
-     aspect of the topic the student asked about, say so explicitly — e.g. "The course
-     files found don't cover X" — instead of filling the gap from general knowledge.
+     aspect of the topic the student asked about, say so explicitly (e.g. "The course
+     files found don't cover X") instead of filling the gap from general knowledge.
 
 6. If no relevant files are found at all, say plainly that no matching course material
    was found for the topic, and suggest the student try a different search term or
-   confirm the course — do not produce a summary from outside knowledge instead.
+   confirm the course. Do not produce a summary from outside knowledge instead.
 
 ## Rules
 

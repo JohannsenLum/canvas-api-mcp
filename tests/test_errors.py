@@ -68,7 +68,7 @@ async def test_500_reports_server_side_failure():
 @respx.mock
 async def test_connect_error_is_translated_to_actionable_canvas_error():
     """A bad/unreachable CANVAS_BASE_URL raises httpx.ConnectError, which is
-    httpx.HTTPError but NOT httpx.HTTPStatusError — _raise_for_status never
+    httpx.HTTPError but NOT httpx.HTTPStatusError. _raise_for_status never
     sees it. It must still come out as a CanvasError a student can act on."""
     respx.get(URL).mock(
         side_effect=httpx.ConnectError(

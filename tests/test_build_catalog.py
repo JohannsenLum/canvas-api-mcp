@@ -94,7 +94,7 @@ def test_write_catalog_writes_readable_json(tmp_path):
 
 
 def test_regeneration_is_reachable_as_an_installed_console_script():
-    """The catalog is a default, not the truth — a school on a different Canvas
+    """The catalog is a default, not the truth: a school on a different Canvas
     version must be able to regenerate it from a plain pip/uvx install.
 
     catalog.py's missing-catalog error names `canvas-api-mcp-build-catalog`, so if
@@ -106,7 +106,7 @@ def test_regeneration_is_reachable_as_an_installed_console_script():
 
     scripts = {ep.name: ep for ep in entry_points(group="console_scripts")}
     assert "canvas-api-mcp-build-catalog" in scripts, (
-        "console script missing — `canvas-api-mcp-build-catalog` is advertised in "
+        "console script missing: `canvas-api-mcp-build-catalog` is advertised in "
         "catalog.py's error message but would be 'command not found' after install"
     )
     assert callable(scripts["canvas-api-mcp-build-catalog"].load())
