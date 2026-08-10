@@ -149,7 +149,7 @@ async def test_get_assignment_includes_submission_and_rubric():
     submission_includes = submission_route.calls[0].request.url.params.get_list("include[]")
     assert "submission_comments" in submission_includes
     assert "rubric_assessment" in submission_includes
-    # Comments only exist on the submissions mock — proves the merge path ran.
+    # Comments only exist on the submissions mock, which proves the merge path ran.
     assert result["submission"]["submission_comments"][0]["comment"] == "nudge"
     assert result["submission"]["rubric_assessment"]["_123"]["points"] == 15
     assert result["submission"]["score"] == 15.0

@@ -249,7 +249,7 @@ async def do_get_assignment(
     client: CanvasClient, course_id: int, assignment_id: int
 ) -> dict:
     # GET assignment only accepts include[]=submission (among others). Comments and
-    # rubric assessments live on the submissions endpoint — Canvas silently drops
+    # rubric assessments live on the submissions endpoint. Canvas silently drops
     # unrecognised include[] values on the assignment route.
     response = await client.request(
         "GET",
