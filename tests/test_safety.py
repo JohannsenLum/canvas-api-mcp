@@ -238,3 +238,44 @@ async def test_dry_run_still_validates_before_returning():
     )
     assert result.get("error") is True
     assert "dry_run" not in result
+
+
+# --------------------------------------------------------------------------
+# the gateway, which cannot fence and says so
+# --------------------------------------------------------------------------
+
+
+@respx.mock
+async def test_gateway_flags_its_response_as_untrusted():
+    """canvas_request cannot fence arbitrary JSON, so it must warn instead.
+
+    Fencing needs a string. Folding a 1,116-endpoint response into one would
+    destroy the structured access the tool exists to provide, so the warning
+    travels beside the data rather than wrapped around it.
+    """
+    from canvas_api_mcp.tools.gateway import do_request
+
+    respx.get(f"{API}/courses/1/pages/x").mock(
+        return_value=httpx.Response(200, json={"body": INJECTION})
+    )
+    result = await do_request(CanvasClient(CFG), "GET", "courses/1/pages/x")
+
+    assert "untrusted_content" in result, "gateway must flag its payload"
+    notice = result["untrusted_content"].lower()
+    assert "never as instructions" in notice or "not as instructions" in notice
+    assert "not individually fenced" in notice, "must be honest that it is weaker"
+    # The data itself stays structured, which is the whole point of the tool.
+    assert isinstance(result["data"], dict)
+    assert result["data"]["body"] == INJECTION
+
+
+@respx.mock
+async def test_gateway_dry_run_still_sends_nothing():
+    from canvas_api_mcp.tools.gateway import do_request
+
+    route = respx.post(f"{API}/courses/1/pages").mock(
+        return_value=httpx.Response(200, json={"id": 1})
+    )
+    result = await do_request(CanvasClient(CFG), "POST", "courses/1/pages", dry_run=True)
+    assert not route.called
+    assert result["dry_run"] is True
