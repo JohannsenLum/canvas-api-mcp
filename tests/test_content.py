@@ -4,7 +4,12 @@ import respx
 
 from canvas_api_mcp.client import CanvasClient
 from canvas_api_mcp.config import Config
-from canvas_api_mcp.tools.content import do_course_content, do_get_page, do_list_files
+from canvas_api_mcp.tools.content import (
+    do_course_content,
+    do_get_page,
+    do_get_syllabus,
+    do_list_files,
+)
 
 CFG = Config(base_url="https://canvas.example.edu", token="tok", max_pages=10)
 API = "https://canvas.example.edu/api/v1"
@@ -89,15 +94,40 @@ async def test_list_files_passes_search_term():
 
 @respx.mock
 async def test_get_page_returns_title_and_body():
-    respx.get(f"{API}/courses/101/pages/syllabus").mock(
+    respx.get(f"{API}/courses/101/pages/week-1-overview").mock(
         return_value=httpx.Response(200, json={
-            "title": "Syllabus", "url": "syllabus", "body": "<p>Grading: 40/60</p>",
+            "title": "Week 1", "url": "week-1-overview", "body": "<p>Welcome</p>",
             "updated_at": "2026-08-01T00:00:00Z",
         })
     )
     client = CanvasClient(CFG)
-    page = await do_get_page(client, 101, "syllabus")
+    page = await do_get_page(client, 101, "week-1-overview")
     await client.aclose()
 
-    assert page["title"] == "Syllabus"
-    assert "40/60" in page["body"]
+    assert page["title"] == "Week 1"
+    assert "Welcome" in page["body"]
+
+
+@respx.mock
+async def test_get_syllabus_requests_and_returns_syllabus_body():
+    route = respx.get(f"{API}/courses/101").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": 101,
+                "name": "Databases",
+                "syllabus_body": "<p>Grading: 40/60</p>",
+            },
+        )
+    )
+    client = CanvasClient(CFG)
+    syllabus = await do_get_syllabus(client, 101)
+    await client.aclose()
+
+    assert route.calls[0].request.url.params.get_list("include[]") == [
+        "syllabus_body"
+    ]
+    assert syllabus == {
+        "name": "Databases",
+        "syllabus_body": "<p>Grading: 40/60</p>",
+    }
