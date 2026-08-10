@@ -14,9 +14,10 @@ def token_help(base_url: str | None = None) -> str:
     settings = f"{base_url}/profile/settings" if base_url else "<your-canvas>/profile/settings"
     return (
         f"Create one at {settings} -> Approved Integrations -> '+ New access token'. "
-        "Set an expiry rather than leaving it blank, and copy the token immediately. "
-        "Canvas shows it only once. Then put it in your MCP client config, e.g. "
-        '"env": {"CANVAS_TOKEN": "..."}. '
+        "Student accounts must set an expiry, capped at 120 days by Canvas and often "
+        "lower by the institution, so note the date: an expired token fails exactly "
+        "like a missing one. Copy the token immediately, Canvas shows it only once. "
+        'Then put it in your MCP client config, e.g. "env": {"CANVAS_TOKEN": "..."}. '
         f"Full walkthrough: {SETUP_GUIDE_URL}"
     )
 

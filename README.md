@@ -78,6 +78,12 @@ even though only 16 tools are hand-curated.
   **"+ New access token"** button. Full walkthrough with screenshots:
   [mcp.johannsenlum.com/canvas-lms/install](https://mcp.johannsenlum.com/canvas-lms/install).
 
+  **Note that the token expires.** Since Instructure's October 2025 security update,
+  accounts holding only student roles must set an expiry no more than 120 days out,
+  and institutions often cap it lower (NUS allows 90). Write the date down: an expired
+  token makes every tool return `401` at once, which looks like a broken install rather
+  than a credential that simply ran out.
+
 ### Running the server
 
 `canvas-api-mcp` is published on PyPI. Run it with:
