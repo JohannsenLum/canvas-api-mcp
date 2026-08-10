@@ -1,7 +1,7 @@
 [project]
 name = "canvas-api-mcp"
-version = "0.0.3"
-description = "MCP server for Canvas LMS — student tools plus full API gateway"
+version = "0.0.4"
+description = "MCP server for Canvas LMS: student tools plus full API gateway"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -48,7 +48,7 @@ dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "respx>=0.21"]
 [project.scripts]
 canvas-api-mcp = "canvas_api_mcp.server:main"
 # Regeneration must be reachable from a plain pip/uvx install, not just a source
-# checkout — different institutions run different Canvas versions, so the bundled
+# checkout, different institutions run different Canvas versions, so the bundled
 # catalog is a default, not the truth. catalog.py's error message names this command.
 canvas-api-mcp-build-catalog = "canvas_api_mcp.catalog:main"
 
@@ -69,7 +69,7 @@ packages = ["src/canvas_api_mcp"]
 #
 # `uv build` builds the wheel FROM the sdist (two-stage), so the sdist
 # must ship data/ at its original "data/..." path (hatchling's default
-# VCS-based sdist file selection already does this — data/catalog.json
+# VCS-based sdist file selection already does this: data/catalog.json
 # is git-tracked) for this wheel-side force-include to find "data" as
 # its source when the second stage runs. Do NOT also force-include on
 # the sdist target: that would rename data/ to canvas_api_mcp/data/

@@ -54,8 +54,8 @@ async def test_whoami_reports_name_and_per_course_roles():
 
 @respx.mock
 async def test_whoami_reports_login_id():
-    """login_id lives only on the /profile response, not plain /users/self —
-    a prior version of this code called /users/self and login_id silently
+    """login_id lives only on the /profile response, not plain /users/self.
+    A prior version of this code called /users/self and login_id silently
     read as None in production."""
     identity.clear_cache()
     _mock_identity()
@@ -69,7 +69,7 @@ async def test_whoami_reports_login_id():
 @respx.mock
 async def test_whoami_excludes_calendar_feed_url():
     """calendar_feed_url is a bearer credential (the .ics token authenticates
-    with no login) — it must not ride along in the orientation payload that
+    with no login): it must not ride along in the orientation payload that
     every session calls unconditionally. See issue #13."""
     identity.clear_cache()
     _mock_identity()
@@ -82,7 +82,7 @@ async def test_whoami_excludes_calendar_feed_url():
 
 @respx.mock
 async def test_calendar_feed_url_returns_ics_link_when_explicitly_requested():
-    """The credential is only ever fetched on a deliberate, dedicated call —
+    """The credential is only ever fetched on a deliberate, dedicated call,
     never bundled into whoami. See issue #13."""
     identity.clear_cache()
     _mock_identity()

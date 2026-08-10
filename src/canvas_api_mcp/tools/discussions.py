@@ -18,17 +18,22 @@ READ_ONLY = dict(
 
 def _flatten(entries: list[dict], depth: int = 0) -> list[dict]:
     out: list[dict] = []
-    for entry in entries:
+    stack = [(entry, depth) for entry in reversed(entries)]
+
+    while stack:
+        entry, current_depth = stack.pop()
         out.append(
             {
                 "id": entry.get("id"),
                 "user_id": entry.get("user_id"),
                 "message": entry.get("message"),
                 "created_at": entry.get("created_at"),
-                "depth": depth,
+                "depth": current_depth,
             }
         )
-        out.extend(_flatten(entry.get("replies") or [], depth + 1))
+        replies = entry.get("replies") or []
+        stack.extend((reply, current_depth + 1) for reply in reversed(replies))
+
     return out
 
 

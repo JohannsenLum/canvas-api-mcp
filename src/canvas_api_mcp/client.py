@@ -190,7 +190,7 @@ class CanvasClient:
                 response = await self._client.request(method, url, params=params, json=json)
             except httpx.HTTPError as exc:
                 # Everything self._client.request can raise here is transport-level
-                # (DNS, connection refused, timeout, ...) — httpx only raises
+                # (DNS, connection refused, timeout, ...). httpx only raises
                 # HTTPStatusError if you ask it to via raise_for_status(), which we
                 # don't. A bad CANVAS_BASE_URL is the most likely first-time mistake,
                 # so name it explicitly rather than letting an errno string surface.
@@ -311,7 +311,7 @@ class CanvasClient:
             if next_url is None:
                 break
             # The Link header is server-controlled, and every request carries the
-            # Authorization header — so following an off-origin "next" would hand
+            # Authorization header, so following an off-origin "next" would hand
             # the user's Canvas token to whatever host that header names. Stop
             # instead, and report it as truncation rather than failing the call.
             if not _same_origin(next_url, self._config.base_url):
@@ -334,6 +334,6 @@ class CanvasClient:
             raise CanvasError(
                 response.status_code,
                 "Canvas returned a response that is not valid JSON.",
-                "This usually means the request was redirected to a login page — "
-                "check that CANVAS_TOKEN is set and has not expired.",
+                "This usually means the request was redirected to a login page. "
+                "Check that CANVAS_TOKEN is set and has not expired.",
             ) from exc

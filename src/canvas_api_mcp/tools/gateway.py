@@ -2,7 +2,7 @@
 """Layer 2 and 3: endpoint discovery and generic passthrough.
 
 Together these reach every endpoint the Canvas instance exposes. What they
-are permitted to do is decided by Canvas, per token — never by this server.
+are permitted to do is decided by Canvas, per token, never by this server.
 """
 
 from __future__ import annotations

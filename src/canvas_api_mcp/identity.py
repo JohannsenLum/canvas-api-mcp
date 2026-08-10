@@ -2,7 +2,7 @@
 """Who the token belongs to, and what role it holds in each course.
 
 Used for orientation and error messages only. Authorisation decisions are
-always Canvas's — this module never gates a call.
+always Canvas's. This module never gates a call.
 """
 
 from __future__ import annotations

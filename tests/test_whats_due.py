@@ -150,7 +150,7 @@ async def test_one_source_network_error_still_returns_the_others():
 @respx.mock
 async def test_all_sources_failing_is_not_reported_as_nothing_due():
     """If Canvas is completely unreachable, `items: []` would read as 'nothing
-    due' to a model relaying it — a false negative, not a visible error. All
+    due' to a model relaying it: a false negative, not a visible error. All
     three sources failing must produce a distinct, unmissable signal."""
     for path in (
         "https://canvas.example.edu/api/v1/users/self/todo",
@@ -271,7 +271,7 @@ async def test_wide_horizon_keeps_distant_items():
 
 @respx.mock
 async def test_undated_work_survives_any_horizon():
-    """A to-do with no due date is still outstanding — filtering it out would hide
+    """A to-do with no due date is still outstanding: filtering it out would hide
     real work. It is kept and flagged so callers can tell it apart."""
     respx.get("https://canvas.example.edu/api/v1/users/self/todo").mock(
         return_value=httpx.Response(200, json=[_todo("No due date", None, 3)]))

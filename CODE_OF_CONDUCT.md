@@ -45,8 +45,8 @@ password-equivalent access token.
 Two things follow, and they are enforced as part of this Code of Conduct:
 
 * **Never post a real Canvas access token, `.ics` calendar feed URL, or signed
-  file download link** in an issue, pull request, comment, or test fixture — your
-  own or anyone else's. Use obvious placeholders. If you post one by accident,
+  file download link** in an issue, pull request, comment, or test fixture
+  (your own or anyone else's). Use obvious placeholders. If you post one by accident,
   say so immediately and revoke it in your Canvas settings; a deleted comment is
   still in the event history.
 * **Do not include another person's Canvas data** in a bug report. Screenshots of

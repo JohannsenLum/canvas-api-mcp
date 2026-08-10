@@ -51,14 +51,14 @@
   <circle cx="62" cy="18" r="5.5" fill="#28c840"/>
   <text class="mono dim" x="420" y="22" font-size="12" text-anchor="middle">canvas-api-mcp</text>
 
-  <!-- beat 1 — curated fast path -->
+  <!-- beat 1: curated fast path -->
   <g class="ln1">
     <text class="mono ok" x="28" y="72" font-size="15">❯</text>
     <text class="mono fg" x="50" y="72" font-size="15">what mods am I taking this sem?</text>
   </g>
   <g class="ln2">
     <text class="mono acc" x="50" y="98" font-size="13">my_courses()</text>
-    <text class="mono dim" x="162" y="98" font-size="13">curated tool — one call, no lookup</text>
+    <text class="mono dim" x="162" y="98" font-size="13">curated tool, one call, no lookup</text>
   </g>
   <g class="ln3">
     <text class="mono fg"  x="70" y="121" font-size="13">CS3230</text>
@@ -70,14 +70,14 @@
     <text class="mono fg"  x="312" y="121" font-size="13">GEA1000</text>
   </g>
 
-  <!-- beat 2 — gateway -->
+  <!-- beat 2: gateway -->
   <g class="ln4">
     <text class="mono ok" x="28" y="166" font-size="15">❯</text>
     <text class="mono fg" x="50" y="166" font-size="15">what groups am I in?</text>
     <rect class="caret" x="252" y="153" width="8" height="17" fill="#e6edf3"/>
   </g>
   <g class="ln5">
-    <text class="mono warn" x="50" y="190" font-size="12">no curated tool for this — searching 1,116 endpoints…</text>
+    <text class="mono warn" x="50" y="190" font-size="12">no curated tool for this, searching 1,116 endpoints…</text>
   </g>
   <g class="ln6">
     <text class="mono acc" x="50"  y="214" font-size="13">search_canvas_api</text>

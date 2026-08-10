@@ -142,7 +142,7 @@ async def do_whats_due(client: CanvasClient, days: int = 14) -> dict[str, Any]:
             "message": (
                 "Could not determine what is due: every source failed to load "
                 "from Canvas, so this is not evidence of an empty schedule. "
-                "Do not report that nothing is due — report that Canvas "
+                "Do not report that nothing is due. Report that Canvas "
                 "could not be reached, and see `warnings` for the cause "
                 "(e.g. a wrong CANVAS_BASE_URL or an unreachable host)."
             ),
@@ -175,7 +175,7 @@ async def do_whats_due(client: CanvasClient, days: int = 14) -> dict[str, Any]:
     for item in ordered:
         due = _parse_due(item.get("due_at"))
         if due is None:
-            # Keep undated work — a to-do with no due date is still outstanding, and
+            # Keep undated work: a to-do with no due date is still outstanding, and
             # dropping it would hide real tasks. Flagged so callers can tell them apart.
             item["undated"] = True
             undated.append(item)
@@ -435,8 +435,8 @@ async def do_submit_assignment(
 def register(mcp: FastMCP, get_client) -> None:
     @mcp.tool(
         description=(
-            "List what is due for the user across all courses — assignments, quizzes, "
-            "and scheduled events — sorted soonest first. This is the primary tool for "
+            "List what is due for the user across all courses (assignments, quizzes, "
+            "and scheduled events), sorted soonest first. This is the primary tool for "
             "'what's due this week', 'what do I have coming up', and deadline planning."
         ),
         annotations=ToolAnnotations(title="What's Due", **READ_ONLY),
@@ -525,7 +525,7 @@ def register(mcp: FastMCP, get_client) -> None:
             "Submits work to Canvas for an assignment. This is recorded against the "
             "deadline immediately, is visible to the instructor, and cannot be undone "
             "from here. Confirm the assignment and content with the user before calling. "
-            "Check accepted formats with get_assignment first — submission_type must be "
+            "Check accepted formats with get_assignment first: submission_type must be "
             "one the assignment allows. For online_upload, file_ids must reference files "
             "already uploaded to Canvas."
         ),

@@ -112,7 +112,7 @@ async def do_read_file(
         except httpx.HTTPStatusError as exc:
             # Report the status, never the exception: httpx puts the failing URL in
             # its message, and that URL's `verifier` param is a credential in its own
-            # right — anyone holding it can fetch the file without authenticating.
+            # right: anyone holding it can fetch the file without authenticating.
             status = exc.response.status_code
             return {
                 "error": True,
@@ -161,7 +161,7 @@ def register(mcp: FastMCP, get_client) -> None:
 
     @mcp.tool(
         description=(
-            "List files in a course — lecture slides, notes, readings — with name, type, "
+            "List files in a course (lecture slides, notes, readings) with name, type, "
             "and size. Pass search to filter by filename. Use read_file to get the text "
             "of one."
         ),
@@ -190,8 +190,8 @@ def register(mcp: FastMCP, get_client) -> None:
 
     @mcp.tool(
         description=(
-            "Download a Canvas file and return its text — lecture slides, notes, "
-            "readings. Supports PDF, DOCX, PPTX, and plain text. Get file ids from "
+            "Download a Canvas file and return its text (lecture slides, notes, "
+            "readings). Supports PDF, DOCX, PPTX, and plain text. Get file ids from "
             "list_files or course_content. Long files are truncated to max_chars."
         ),
         annotations=ToolAnnotations(title="Read File", **READ_ONLY),
