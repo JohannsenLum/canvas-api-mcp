@@ -10,4 +10,4 @@ contact_links:
     url: https://mcp.johannsenlum.com/canvas-lms/install
     about: >
       Your institution has disabled student token creation. This project cannot work
-      around that — ask your IT service desk whether API access can be enabled.
+      around that. Ask your IT service desk whether API access can be enabled.

@@ -4,10 +4,51 @@ import respx
 
 from canvas_api_mcp.client import CanvasClient
 from canvas_api_mcp.config import Config
-from canvas_api_mcp.tools.discussions import do_post_discussion_reply, do_read_discussion
+from canvas_api_mcp.tools.discussions import (
+    _flatten,
+    do_post_discussion_reply,
+    do_read_discussion,
+)
 
 CFG = Config(base_url="https://canvas.example.edu", token="tok", max_pages=10)
 API = "https://canvas.example.edu/api/v1"
+
+
+def test_flatten_handles_deep_reply_chain():
+    node = {"id": 0, "message": "leaf"}
+    for entry_id in range(1, 2001):
+        node = {"id": entry_id, "message": "reply", "replies": [node]}
+
+    flattened = _flatten([node])
+
+    assert len(flattened) == 2001
+    assert [entry["id"] for entry in flattened[:3]] == [2000, 1999, 1998]
+    assert flattened[-1]["id"] == 0
+    assert [entry["depth"] for entry in flattened] == list(range(2001))
+
+
+def test_flatten_preserves_preorder_across_siblings_and_roots():
+    entries = [
+        {
+            "id": "root-1",
+            "replies": [
+                {"id": "child-1", "replies": [{"id": "grandchild"}]},
+                {"id": "child-2"},
+            ],
+        },
+        {"id": "root-2"},
+    ]
+
+    flattened = _flatten(entries)
+
+    assert [entry["id"] for entry in flattened] == [
+        "root-1",
+        "child-1",
+        "grandchild",
+        "child-2",
+        "root-2",
+    ]
+    assert [entry["depth"] for entry in flattened] == [0, 1, 2, 1, 0]
 
 
 @respx.mock

@@ -6,8 +6,8 @@
 GitHub's [Security Advisories](https://github.com/JohannsenLum/canvas-api-mcp/security/advisories/new)
 on this repository, which creates a private thread only maintainers can see.
 
-Please include what you were doing, what happened, and — if it involves credential
-exposure — whether a real Canvas token was affected, so it can be revoked quickly.
+Please include what you were doing, what happened, and (if it involves credential
+exposure) whether a real Canvas token was affected, so it can be revoked quickly.
 
 This is a personal project, not a funded one. Expect a first response within about a
 week. There is no bounty.
@@ -40,7 +40,7 @@ Out of scope:
 - Canvas returning 401/403. That is Canvas enforcing permissions correctly.
 - Your institution disabling student token creation. Not something this project can
   change.
-- Vulnerabilities in Canvas itself — report those to Instructure.
+- Vulnerabilities in Canvas itself: report those to Instructure.
 
 ## For users
 

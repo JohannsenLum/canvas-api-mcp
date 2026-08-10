@@ -148,6 +148,31 @@ async def test_one_source_network_error_still_returns_the_others():
 
 
 @respx.mock
+async def test_all_sources_failing_is_not_reported_as_nothing_due():
+    """If Canvas is completely unreachable, `items: []` would read as 'nothing
+    due' to a model relaying it: a false negative, not a visible error. All
+    three sources failing must produce a distinct, unmissable signal."""
+    for path in (
+        "https://canvas.example.edu/api/v1/users/self/todo",
+        "https://canvas.example.edu/api/v1/users/self/upcoming_events",
+        "https://canvas.example.edu/api/v1/planner/items",
+    ):
+        respx.get(path).mock(
+            side_effect=httpx.ConnectError(
+                "[Errno 8] nodename nor servname provided, or not known"
+            )
+        )
+
+    client = CanvasClient(CFG)
+    result = await do_whats_due(client)
+    await client.aclose()
+
+    assert result.get("error") is True
+    assert "items" not in result
+    assert len(result["warnings"]) == 3
+
+
+@respx.mock
 async def test_planner_only_items_are_merged_in():
     """An item that only exists in /planner/items (e.g. a planner note) must
     still surface, even though it is absent from /todo and /upcoming_events."""
@@ -246,7 +271,7 @@ async def test_wide_horizon_keeps_distant_items():
 
 @respx.mock
 async def test_undated_work_survives_any_horizon():
-    """A to-do with no due date is still outstanding — filtering it out would hide
+    """A to-do with no due date is still outstanding: filtering it out would hide
     real work. It is kept and flagged so callers can tell it apart."""
     respx.get("https://canvas.example.edu/api/v1/users/self/todo").mock(
         return_value=httpx.Response(200, json=[_todo("No due date", None, 3)]))

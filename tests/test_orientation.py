@@ -5,7 +5,7 @@ import respx
 from canvas_api_mcp import identity
 from canvas_api_mcp.client import CanvasClient
 from canvas_api_mcp.config import Config
-from canvas_api_mcp.tools.orientation import do_my_courses, do_whoami
+from canvas_api_mcp.tools.orientation import do_get_calendar_feed_url, do_my_courses, do_whoami
 
 CFG = Config(base_url="https://canvas.example.edu", token="tok", max_pages=10)
 
@@ -53,9 +53,9 @@ async def test_whoami_reports_name_and_per_course_roles():
 
 
 @respx.mock
-async def test_whoami_reports_login_id_and_calendar_feed_url():
-    """Both fields live only on the /profile response, not plain /users/self —
-    a prior version of this code called /users/self and login_id silently
+async def test_whoami_reports_login_id():
+    """login_id lives only on the /profile response, not plain /users/self.
+    A prior version of this code called /users/self and login_id silently
     read as None in production."""
     identity.clear_cache()
     _mock_identity()
@@ -64,17 +64,44 @@ async def test_whoami_reports_login_id_and_calendar_feed_url():
     await client.aclose()
 
     assert result["login_id"] == "e0123456"
-    assert result["calendar_feed_url"] == (
-        "https://canvas.example.edu/feeds/calendars/user_abc123.ics"
-    )
 
 
 @respx.mock
-async def test_whoami_calendar_feed_url_is_none_when_absent():
+async def test_whoami_excludes_calendar_feed_url():
+    """calendar_feed_url is a bearer credential (the .ics token authenticates
+    with no login): it must not ride along in the orientation payload that
+    every session calls unconditionally. See issue #13."""
+    identity.clear_cache()
+    _mock_identity()
+    client = CanvasClient(CFG)
+    result = await do_whoami(client)
+    await client.aclose()
+
+    assert "calendar_feed_url" not in result
+
+
+@respx.mock
+async def test_calendar_feed_url_returns_ics_link_when_explicitly_requested():
+    """The credential is only ever fetched on a deliberate, dedicated call,
+    never bundled into whoami. See issue #13."""
+    identity.clear_cache()
+    _mock_identity()
+    client = CanvasClient(CFG)
+    result = await do_get_calendar_feed_url(client)
+    await client.aclose()
+
+    assert result["calendar_feed_url"] == (
+        "https://canvas.example.edu/feeds/calendars/user_abc123.ics"
+    )
+    assert "warning" in result
+
+
+@respx.mock
+async def test_calendar_feed_url_is_none_when_absent():
     identity.clear_cache()
     _mock_identity(self_profile={"id": 42, "name": "Jo Tan"})
     client = CanvasClient(CFG)
-    result = await do_whoami(client)
+    result = await do_get_calendar_feed_url(client)
     await client.aclose()
 
     assert result["calendar_feed_url"] is None

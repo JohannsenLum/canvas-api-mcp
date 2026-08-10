@@ -5,7 +5,7 @@ description: Works out a student's current standing in a Canvas LMS course, comp
 
 # Canvas Grade Check
 
-Read-only analysis skill. Never modify, submit, or post anything — only compute from what
+Read-only analysis skill. Never modify, submit, or post anything: only compute from what
 the canvas-api-mcp tools return.
 
 ## Prerequisites
@@ -28,9 +28,9 @@ the user to install it first: https://mcp.johannsenlum.com/canvas-lms/install
 
 4. **Compute remaining unearned points.**
    - Sum `points_possible` for assignments that are not yet graded (ungraded-submitted,
-     not-yet-due, not submitted) — this is the pool of points still in play.
+     not-yet-due, not submitted): this is the pool of points still in play.
    - Sum points already earned from graded work (as reported by the tools).
-   - Do not estimate a score for anything not yet graded — treat it as unresolved
+   - Do not estimate a score for anything not yet graded: treat it as unresolved
      potential, not a guessed number.
 
 5. **State current standing and what's needed:**
@@ -39,8 +39,8 @@ the user to install it first: https://mcp.johannsenlum.com/canvas-lms/install
      (ungraded/outstanding), from step 4.
    - If asked "what do I need to get X", compute the math to that answer ONLY if
      points_possible for all remaining work is known and the weighting scheme is either
-     visible via the API or the student's assumption is used explicitly (see below) —
-     otherwise, present the arithmetic range that is knowable and stop there.
+     visible via the API or the student's assumption is used explicitly (see below),
+     otherwise present the arithmetic range that is knowable and stop there.
 
 6. **State weighting assumptions explicitly.** Canvas courses may use weighted
    assignment groups instead of raw points. If the tools do not expose group weights:
@@ -48,13 +48,13 @@ the user to install it first: https://mcp.johannsenlum.com/canvas-lms/install
    - Do not invent or assume a weighting scheme (e.g. do not assume "everything is
      equally weighted" silently). If a raw-points calculation is shown anyway as a
      rough approximation, label it clearly as "unweighted approximation, may not match
-     the instructor's actual weighting" — never present it as the real grade.
+     the instructor's actual weighting". Never present it as the real grade.
 
 ## Rules
 
 - Every number in the output (score, points possible, points earned, points remaining)
-  must come from a tool call in this session — never estimate or guess a grade.
-- Never guess deadlines or invent submission states — read them from `list_assignments`.
+  must come from a tool call in this session. Never estimate or guess a grade.
+- Never guess deadlines or invent submission states: read them from `list_assignments`.
 - If weighting is unknown, say so explicitly rather than assuming equal weighting.
 - Do not call any write tool. This skill is strictly read-only.
 

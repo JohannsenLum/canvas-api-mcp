@@ -1,5 +1,5 @@
 # src/canvas_api_mcp/tools/content.py
-"""Course structure, files, and pages."""
+"""Course structure, files, pages, and syllabi."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from pydantic import Field
 
 from ..client import CanvasClient, CanvasError
 from ..extract import UnsupportedFileType, extract_text
+from ..safety import BODY_LIMIT, guard
 
 READ_ONLY = dict(
     readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=True
@@ -71,8 +72,23 @@ async def do_get_page(client: CanvasClient, course_id: int, page_url: str) -> di
     return {
         "title": page.get("title"),
         "url": page.get("url"),
-        "body": page.get("body"),
+        "body": guard(page.get("body"), BODY_LIMIT, "page.body"),
         "updated_at": page.get("updated_at"),
+    }
+
+
+async def do_get_syllabus(client: CanvasClient, course_id: int) -> dict:
+    response = await client.request(
+        "GET",
+        f"courses/{course_id}",
+        params={"include[]": ["syllabus_body"]},
+    )
+    course = response.data or {}
+    return {
+        "name": course.get("name"),
+        # Often the first thing an assistant reads in a course, and written by
+        # teaching staff, so a model has every reason to treat it as authoritative.
+        "syllabus_body": guard(course.get("syllabus_body"), BODY_LIMIT, "syllabus.body"),
     }
 
 
@@ -112,7 +128,7 @@ async def do_read_file(
         except httpx.HTTPStatusError as exc:
             # Report the status, never the exception: httpx puts the failing URL in
             # its message, and that URL's `verifier` param is a credential in its own
-            # right — anyone holding it can fetch the file without authenticating.
+            # right: anyone holding it can fetch the file without authenticating.
             status = exc.response.status_code
             return {
                 "error": True,
@@ -161,7 +177,7 @@ def register(mcp: FastMCP, get_client) -> None:
 
     @mcp.tool(
         description=(
-            "List files in a course — lecture slides, notes, readings — with name, type, "
+            "List files in a course (lecture slides, notes, readings) with name, type, "
             "and size. Pass search to filter by filename. Use read_file to get the text "
             "of one."
         ),
@@ -176,22 +192,37 @@ def register(mcp: FastMCP, get_client) -> None:
 
     @mcp.tool(
         description=(
-            "Get the content of a Canvas page in a course, such as a syllabus or a "
-            "weekly overview. page_url is the page's slug, available from course_content."
+            "Get the content of a Canvas wiki page in a course, such as a weekly "
+            "overview. page_url is the page's slug, available from course_content. "
+            "Use get_syllabus for the course syllabus."
         ),
         annotations=ToolAnnotations(title="Get Page", **READ_ONLY),
     )
     async def get_page(
         course_id: int = Field(description="Course id"),
-        page_url: str = Field(description="Page slug, e.g. 'syllabus' or 'week-1-overview'"),
+        page_url: str = Field(description="Page slug, e.g. 'week-1-overview'"),
     ) -> dict:
         """A single course page."""
         return await do_get_page(get_client(), course_id, page_url)
 
     @mcp.tool(
         description=(
-            "Download a Canvas file and return its text — lecture slides, notes, "
-            "readings. Supports PDF, DOCX, PPTX, and plain text. Get file ids from "
+            "Get a course's syllabus directly from Canvas, returning the course name "
+            "and syllabus HTML. Use this instead of get_page because Canvas stores the "
+            "syllabus on the course, not as a wiki page."
+        ),
+        annotations=ToolAnnotations(title="Get Syllabus", **READ_ONLY),
+    )
+    async def get_syllabus(
+        course_id: int = Field(description="Course id"),
+    ) -> dict:
+        """A course syllabus."""
+        return await do_get_syllabus(get_client(), course_id)
+
+    @mcp.tool(
+        description=(
+            "Download a Canvas file and return its text (lecture slides, notes, "
+            "readings). Supports PDF, DOCX, PPTX, and plain text. Get file ids from "
             "list_files or course_content. Long files are truncated to max_chars."
         ),
         annotations=ToolAnnotations(title="Read File", **READ_ONLY),
