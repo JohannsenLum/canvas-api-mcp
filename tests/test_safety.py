@@ -188,3 +188,53 @@ async def test_structural_fields_are_not_fenced():
     assert result["title"] == "Week 1"
     assert result["url"] == "w"
     assert result["updated_at"] == "2026-08-10T00:00:00Z"
+
+
+# --------------------------------------------------------------------------
+# dry_run on the two irreversible write tools
+# --------------------------------------------------------------------------
+
+
+@respx.mock
+async def test_post_discussion_reply_dry_run_sends_nothing():
+    """The whole point is that no HTTP request happens, so assert on the route."""
+    route = respx.post(f"{API}/courses/1/discussion_topics/2/entries").mock(
+        return_value=httpx.Response(200, json={"id": 99})
+    )
+    from canvas_api_mcp.tools.discussions import do_post_discussion_reply
+
+    result = await do_post_discussion_reply(CanvasClient(CFG), 1, 2, "hello", dry_run=True)
+
+    assert not route.called, "dry_run must not touch the network"
+    assert result["dry_run"] is True
+    assert result["message"] == "hello"
+    assert "id" not in result, "must not look like a successful post"
+
+
+@respx.mock
+async def test_submit_assignment_dry_run_sends_nothing():
+    route = respx.post(f"{API}/courses/1/assignments/2/submissions").mock(
+        return_value=httpx.Response(200, json={"id": 5})
+    )
+    from canvas_api_mcp.tools.student import do_submit_assignment
+
+    result = await do_submit_assignment(
+        CanvasClient(CFG), 1, 2, "online_text_entry", body="my essay", dry_run=True
+    )
+
+    assert not route.called, "dry_run must not touch the network"
+    assert result["dry_run"] is True
+    assert result["submission"]["body"] == "my essay"
+    assert result["submission"]["submission_type"] == "online_text_entry"
+
+
+@respx.mock
+async def test_dry_run_still_validates_before_returning():
+    """A dry run of an invalid call must report the error, not a fake success."""
+    from canvas_api_mcp.tools.student import do_submit_assignment
+
+    result = await do_submit_assignment(
+        CanvasClient(CFG), 1, 2, "online_text_entry", body=None, dry_run=True
+    )
+    assert result.get("error") is True
+    assert "dry_run" not in result
