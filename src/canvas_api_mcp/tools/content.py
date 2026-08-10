@@ -1,5 +1,5 @@
 # src/canvas_api_mcp/tools/content.py
-"""Course structure, files, and pages."""
+"""Course structure, files, pages, and syllabi."""
 
 from __future__ import annotations
 
@@ -73,6 +73,19 @@ async def do_get_page(client: CanvasClient, course_id: int, page_url: str) -> di
         "url": page.get("url"),
         "body": page.get("body"),
         "updated_at": page.get("updated_at"),
+    }
+
+
+async def do_get_syllabus(client: CanvasClient, course_id: int) -> dict:
+    response = await client.request(
+        "GET",
+        f"courses/{course_id}",
+        params={"include[]": ["syllabus_body"]},
+    )
+    course = response.data or {}
+    return {
+        "name": course.get("name"),
+        "syllabus_body": course.get("syllabus_body"),
     }
 
 
@@ -176,17 +189,32 @@ def register(mcp: FastMCP, get_client) -> None:
 
     @mcp.tool(
         description=(
-            "Get the content of a Canvas page in a course, such as a syllabus or a "
-            "weekly overview. page_url is the page's slug, available from course_content."
+            "Get the content of a Canvas wiki page in a course, such as a weekly "
+            "overview. page_url is the page's slug, available from course_content. "
+            "Use get_syllabus for the course syllabus."
         ),
         annotations=ToolAnnotations(title="Get Page", **READ_ONLY),
     )
     async def get_page(
         course_id: int = Field(description="Course id"),
-        page_url: str = Field(description="Page slug, e.g. 'syllabus' or 'week-1-overview'"),
+        page_url: str = Field(description="Page slug, e.g. 'week-1-overview'"),
     ) -> dict:
         """A single course page."""
         return await do_get_page(get_client(), course_id, page_url)
+
+    @mcp.tool(
+        description=(
+            "Get a course's syllabus directly from Canvas, returning the course name "
+            "and syllabus HTML. Use this instead of get_page because Canvas stores the "
+            "syllabus on the course, not as a wiki page."
+        ),
+        annotations=ToolAnnotations(title="Get Syllabus", **READ_ONLY),
+    )
+    async def get_syllabus(
+        course_id: int = Field(description="Course id"),
+    ) -> dict:
+        """A course syllabus."""
+        return await do_get_syllabus(get_client(), course_id)
 
     @mcp.tool(
         description=(
