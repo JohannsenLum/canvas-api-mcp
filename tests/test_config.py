@@ -92,3 +92,21 @@ def test_timeout_must_be_numeric():
             "CANVAS_TIMEOUT": "fast",
         })
     assert "CANVAS_TIMEOUT" in str(exc.value)
+
+
+@pytest.mark.parametrize("value", ["nan", "inf", "-inf", "Infinity"])
+def test_timeout_rejects_non_finite(value):
+    """float() accepts these, and NaN compares False against everything.
+
+    A plain `timeout <= 0` check lets "nan" and "inf" straight through, and an
+    infinite timeout means the client waits forever on a hung Canvas instead of
+    giving up, which is precisely what the person setting a timeout wanted to
+    avoid. Silent, and only visible when something is already going wrong.
+    """
+    with pytest.raises(ConfigError) as exc:
+        Config.from_env({
+            "CANVAS_BASE_URL": "https://canvas.nus.edu.sg",
+            "CANVAS_TOKEN": "abc123",
+            "CANVAS_TIMEOUT": value,
+        })
+    assert "CANVAS_TIMEOUT" in str(exc.value)

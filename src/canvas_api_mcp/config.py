@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 
@@ -78,8 +79,12 @@ class Config:
             raise ConfigError(
                 f"CANVAS_TIMEOUT must be a number of seconds, got: {raw_timeout!r}"
             ) from exc
-        if timeout <= 0:
-            raise ConfigError("CANVAS_TIMEOUT must be greater than 0")
+        # isfinite before the comparison, not after. float() happily accepts "nan"
+        # and "inf", and every comparison against NaN is False, so `timeout <= 0`
+        # lets both through. An infinite timeout means httpx never gives up, which
+        # is the opposite of what someone setting a timeout wants.
+        if not math.isfinite(timeout) or timeout <= 0:
+            raise ConfigError("CANVAS_TIMEOUT must be a finite number greater than 0")
 
         return cls(
             base_url=base_url, token=token, max_pages=max_pages, timeout=timeout

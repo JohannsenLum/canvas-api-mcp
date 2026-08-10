@@ -379,7 +379,8 @@ CANVAS_LIVE_TESTS=1 uv run pytest tests/test_live.py -v
 ```
 
 Environment variables: `CANVAS_BASE_URL`, `CANVAS_TOKEN`, optional
-`CANVAS_MAX_PAGES` (default 10). See `env.template`.
+`CANVAS_MAX_PAGES` (default 10) and `CANVAS_TIMEOUT` (seconds, default 30).
+See `env.template`.
 
 ## Contributing
 

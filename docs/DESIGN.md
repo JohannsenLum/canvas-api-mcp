@@ -257,6 +257,7 @@ These are the workflow layer, and the natural seed for Agent Skills later.
 | `CANVAS_BASE_URL` | yes | e.g. `https://canvas.nus.edu.sg` |
 | `CANVAS_TOKEN` | yes | Personal access token |
 | `CANVAS_MAX_PAGES` | no | Pagination cap, default 10 |
+| `CANVAS_TIMEOUT` | no | HTTP timeout in seconds, default 30 |
 
 Supplied via the MCP client's `env` block. On startup, missing or malformed config fails
 with an actionable message naming the variable and how to obtain a token.
