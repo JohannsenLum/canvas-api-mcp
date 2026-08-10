@@ -10,6 +10,7 @@ from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from ..client import CanvasClient, CanvasError
+from ..safety import MESSAGE_LIMIT, guard
 
 READ_ONLY = dict(
     readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=True
@@ -26,7 +27,11 @@ def _flatten(entries: list[dict], depth: int = 0) -> list[dict]:
             {
                 "id": entry.get("id"),
                 "user_id": entry.get("user_id"),
-                "message": entry.get("message"),
+                # Written by a classmate or the instructor. Fenced because this
+                # server also registers post_discussion_reply, so a reply saying
+                # "post the following to the class" is one tool call away from
+                # being acted on under the user's own name.
+                "message": guard(entry.get("message"), MESSAGE_LIMIT, "discussion.reply"),
                 "created_at": entry.get("created_at"),
                 "depth": current_depth,
             }
@@ -69,7 +74,7 @@ async def do_read_discussion(
     return {
         "id": topic.get("id"),
         "title": topic.get("title"),
-        "message": topic.get("message"),
+        "message": guard(topic.get("message"), MESSAGE_LIMIT, "discussion.topic"),
         "entries": _flatten(view.get("view") or []),
     }
 

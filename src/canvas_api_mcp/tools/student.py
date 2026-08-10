@@ -12,6 +12,7 @@ from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from ..client import CanvasClient, CanvasError
+from ..safety import BODY_LIMIT, COMMENT_LIMIT, MESSAGE_LIMIT, guard
 
 READ_ONLY = dict(
     readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=True
@@ -19,6 +20,28 @@ READ_ONLY = dict(
 
 # Sorts unknown due dates to the end.
 _FAR_FUTURE = "9999"
+
+
+def _fence_comments(comments: Any) -> Any:
+    """Fence the text of each submission comment, leaving its metadata alone.
+
+    Grader feedback is free text written by an instructor or TA, so it needs the
+    same treatment as a page body. The surrounding fields (author, timestamp)
+    are structural and stay readable, since fencing them would only make the
+    result harder to use without narrowing any real attack.
+    """
+    if not isinstance(comments, list):
+        return comments
+    out = []
+    for c in comments:
+        if not isinstance(c, dict):
+            out.append(c)
+            continue
+        fenced = dict(c)
+        if "comment" in fenced:
+            fenced["comment"] = guard(fenced["comment"], COMMENT_LIMIT, "submission.comment")
+        out.append(fenced)
+    return out
 
 
 def _course_id_from_context(code: str | None) -> int | None:
@@ -273,6 +296,10 @@ async def do_get_assignment(
         if isinstance(detailed, dict):
             # Prefer fields from the submissions endpoint (especially comments / rubric).
             submission = {**submission, **detailed}
+            if "submission_comments" in submission:
+                submission["submission_comments"] = _fence_comments(
+                    submission["submission_comments"]
+                )
     except CanvasError as exc:
         note = (
             "Assignment loaded, but submission comments/rubric could not be fetched: "
@@ -287,7 +314,10 @@ async def do_get_assignment(
     result: dict[str, Any] = {
         "id": assignment.get("id"),
         "name": assignment.get("name"),
-        "description": assignment.get("description"),
+        # Instructor-authored HTML. The sharpest case in this file: a model
+        # reading an assignment brief has every reason to treat it as an
+        # instruction addressed to the student.
+        "description": guard(assignment.get("description"), BODY_LIMIT, "assignment.description"),
         "due_at": assignment.get("due_at"),
         "unlock_at": assignment.get("unlock_at"),
         "lock_at": assignment.get("lock_at"),
@@ -320,7 +350,7 @@ async def do_my_submission(
         "late": submission.get("late"),
         "missing": submission.get("missing"),
         "attempt": submission.get("attempt"),
-        "comments": submission.get("submission_comments", []),
+        "comments": _fence_comments(submission.get("submission_comments", [])),
         "rubric_assessment": submission.get("rubric_assessment"),
     }
 
@@ -351,7 +381,10 @@ async def do_course_announcements(
             {
                 "id": item.get("id"),
                 "title": item.get("title"),
-                "message": item.get("message"),
+                # Announcements are normally restricted to teaching staff, which
+                # is exactly why a model weights them heavily and why they need
+                # fencing more than an ordinary discussion reply does.
+                "message": guard(item.get("message"), MESSAGE_LIMIT, "announcement.message"),
                 "posted_at": item.get("posted_at"),
                 "html_url": item.get("html_url"),
                 "course_id": _course_id_from_context(item.get("context_code")),

@@ -127,7 +127,9 @@ async def test_get_syllabus_requests_and_returns_syllabus_body():
     assert route.calls[0].request.url.params.get_list("include[]") == [
         "syllabus_body"
     ]
-    assert syllabus == {
-        "name": "Databases",
-        "syllabus_body": "<p>Grading: 40/60</p>",
-    }
+    assert syllabus["name"] == "Databases"
+    # The body is fenced as untrusted before it reaches the model, so this can no
+    # longer be an equality check. The fence itself is asserted in
+    # tests/test_safety.py; here we only care that the content survived intact.
+    assert "<p>Grading: 40/60</p>" in syllabus["syllabus_body"]
+    assert set(syllabus) == {"name", "syllabus_body"}

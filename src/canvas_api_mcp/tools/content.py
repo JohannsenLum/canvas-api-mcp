@@ -10,6 +10,7 @@ from pydantic import Field
 
 from ..client import CanvasClient, CanvasError
 from ..extract import UnsupportedFileType, extract_text
+from ..safety import BODY_LIMIT, guard
 
 READ_ONLY = dict(
     readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=True
@@ -71,7 +72,7 @@ async def do_get_page(client: CanvasClient, course_id: int, page_url: str) -> di
     return {
         "title": page.get("title"),
         "url": page.get("url"),
-        "body": page.get("body"),
+        "body": guard(page.get("body"), BODY_LIMIT, "page.body"),
         "updated_at": page.get("updated_at"),
     }
 
@@ -85,7 +86,9 @@ async def do_get_syllabus(client: CanvasClient, course_id: int) -> dict:
     course = response.data or {}
     return {
         "name": course.get("name"),
-        "syllabus_body": course.get("syllabus_body"),
+        # Often the first thing an assistant reads in a course, and written by
+        # teaching staff, so a model has every reason to treat it as authoritative.
+        "syllabus_body": guard(course.get("syllabus_body"), BODY_LIMIT, "syllabus.body"),
     }
 
 

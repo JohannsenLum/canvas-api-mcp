@@ -150,7 +150,9 @@ async def test_get_assignment_includes_submission_and_rubric():
     assert "submission_comments" in submission_includes
     assert "rubric_assessment" in submission_includes
     # Comments only exist on the submissions mock, which proves the merge path ran.
-    assert result["submission"]["submission_comments"][0]["comment"] == "nudge"
+    # Comment text is fenced as untrusted (see tests/test_safety.py), so assert
+    # the payload survives inside the fence rather than comparing byte for byte.
+    assert "nudge" in result["submission"]["submission_comments"][0]["comment"]
     assert result["submission"]["rubric_assessment"]["_123"]["points"] == 15
     assert result["submission"]["score"] == 15.0
     assert "note" not in result
@@ -193,7 +195,8 @@ async def test_my_submission_reports_score_and_comments():
     await client.aclose()
 
     assert result["score"] == 17.0
-    assert result["comments"][0]["comment"] == "Good work"
+    # Fenced as untrusted; the fence itself is asserted in tests/test_safety.py.
+    assert "Good work" in result["comments"][0]["comment"]
 
 
 @respx.mock
