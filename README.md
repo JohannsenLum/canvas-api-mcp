@@ -46,7 +46,7 @@ Real prompts, and which tool answers them.
 
 > **You:** How am I doing in my databases course, and what's on the syllabus for
 > week 6?
-> **Claude:** *(calls `my_grades`, then `get_page` for the syllabus, then
+> **Claude:** *(calls `my_grades`, then `get_syllabus`, then
 > `course_content` for the week 6 module)*: You're at 87% overall. Week 6 covers
 > normalization and has a reading plus a lab file due Friday.
 
@@ -307,7 +307,8 @@ Servers → Edit raw config**:
 | `course_content` | Modules and their contents |
 | `list_files` | Files in a course |
 | `read_file` | Extract text from PDF/DOCX/PPTX/text |
-| `get_page` | A Canvas page, e.g. the syllabus |
+| `get_page` | A Canvas wiki page by slug |
+| `get_syllabus` | A course's syllabus |
 | `read_discussion` | Topics, or one topic's replies |
 | `post_discussion_reply` ✏️ | Post to a discussion |
 | `search_canvas_api` | Find any endpoint by keyword (gateway) |
