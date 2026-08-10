@@ -46,3 +46,49 @@ def test_max_pages_override():
         "CANVAS_MAX_PAGES": "3",
     })
     assert cfg.max_pages == 3
+
+
+def test_timeout_default():
+    cfg = Config.from_env({
+        "CANVAS_BASE_URL": "https://canvas.nus.edu.sg",
+        "CANVAS_TOKEN": "abc123",
+    })
+    assert cfg.timeout == 30.0
+
+
+def test_timeout_override():
+    cfg = Config.from_env({
+        "CANVAS_BASE_URL": "https://canvas.nus.edu.sg",
+        "CANVAS_TOKEN": "abc123",
+        "CANVAS_TIMEOUT": "120",
+    })
+    assert cfg.timeout == 120.0
+
+
+def test_timeout_fractional():
+    cfg = Config.from_env({
+        "CANVAS_BASE_URL": "https://canvas.nus.edu.sg",
+        "CANVAS_TOKEN": "abc123",
+        "CANVAS_TIMEOUT": "2.5",
+    })
+    assert cfg.timeout == 2.5
+
+
+def test_timeout_must_be_positive():
+    with pytest.raises(ConfigError) as exc:
+        Config.from_env({
+            "CANVAS_BASE_URL": "https://canvas.nus.edu.sg",
+            "CANVAS_TOKEN": "abc123",
+            "CANVAS_TIMEOUT": "0",
+        })
+    assert "CANVAS_TIMEOUT" in str(exc.value)
+
+
+def test_timeout_must_be_numeric():
+    with pytest.raises(ConfigError) as exc:
+        Config.from_env({
+            "CANVAS_BASE_URL": "https://canvas.nus.edu.sg",
+            "CANVAS_TOKEN": "abc123",
+            "CANVAS_TIMEOUT": "fast",
+        })
+    assert "CANVAS_TIMEOUT" in str(exc.value)
