@@ -3,7 +3,7 @@
   "name": "io.github.JohannsenLum/canvas-api-mcp",
   "title": "Canvas API MCP",
   "description": "MCP server exposing the Canvas LMS REST API (1,116 endpoints) for AI assistants",
-  "version": "0.0.5",
+  "version": "1.0.0",
   "repository": {
     "url": "https://github.com/JohannsenLum/canvas-api-mcp",
     "source": "github",
@@ -14,7 +14,7 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "canvas-api-mcp",
-      "version": "0.0.5",
+      "version": "1.0.0",
       "runtimeHint": "uvx",
       "transport": { "type": "stdio" },
       "environmentVariables": [
