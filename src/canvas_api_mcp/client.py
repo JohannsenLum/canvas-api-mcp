@@ -161,7 +161,7 @@ class CanvasClient:
                 "Authorization": f"Bearer {config.token}",
                 "Accept": "application/json",
             },
-            timeout=30.0,
+            timeout=config.timeout,
             transport=transport,
             follow_redirects=True,
         )

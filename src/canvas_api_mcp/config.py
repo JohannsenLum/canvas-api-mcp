@@ -33,6 +33,7 @@ class Config:
     base_url: str
     token: str
     max_pages: int = 10
+    timeout: float = 30.0
 
     @classmethod
     def from_env(cls, env: Mapping[str, str]) -> Config:
@@ -70,7 +71,19 @@ class Config:
         if max_pages < 1:
             raise ConfigError("CANVAS_MAX_PAGES must be at least 1")
 
-        return cls(base_url=base_url, token=token, max_pages=max_pages)
+        raw_timeout = (env.get("CANVAS_TIMEOUT") or "30").strip()
+        try:
+            timeout = float(raw_timeout)
+        except ValueError as exc:
+            raise ConfigError(
+                f"CANVAS_TIMEOUT must be a number of seconds, got: {raw_timeout!r}"
+            ) from exc
+        if timeout <= 0:
+            raise ConfigError("CANVAS_TIMEOUT must be greater than 0")
+
+        return cls(
+            base_url=base_url, token=token, max_pages=max_pages, timeout=timeout
+        )
 
     @property
     def api_root(self) -> str:
