@@ -7,6 +7,36 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-08-10
+
+### Fixed
+
+- **`get_assignment` now returns submission comments and rubric assessments.** It was
+  passing `submission_comments` and `rubric_assessment` as `include[]` values to
+  `GET /courses/:id/assignments/:id`, which does not accept them. Canvas drops
+  unrecognised `include[]` values silently and still returns 200, so instructor feedback
+  was simply absent with nothing to explain why. Now fetched from
+  `assignments/:id/submissions/self` and merged over the assignment's own submission, so
+  nothing already returned is lost. A failed second call degrades to a `note` rather than
+  failing the whole tool. Contributed by @AshSgDe29071999 in #30, closing #22.
+
+- **`CANVAS_TIMEOUT` rejects non-finite values.** `float()` accepts `"nan"` and `"inf"`,
+  and every comparison against NaN is False, so a `timeout <= 0` guard admitted both.
+  `CANVAS_TIMEOUT=inf` produced a client that never timed out, which is the opposite of
+  what setting a timeout asks for, and it only surfaced once Canvas was already hanging.
+
+### Added
+
+- **`get_syllabus`**, a read-only tool returning a course's syllabus. Canvas stores the
+  syllabus as `syllabus_body` on the course object rather than as a wiki page, so
+  `get_page` could never reach it despite the README and its own description both
+  claiming it could. Those descriptions are corrected too. Contributed by @jiahao6635 in
+  #38, closing #35.
+
+- **`CANVAS_TIMEOUT`**, an optional environment variable setting the HTTP timeout in
+  seconds, default 30. Slow Canvas instances and large exports need longer than the
+  previously hardcoded value. Contributed by @VedantMadane in #37, closing #36.
+
 ## [0.0.4] - 2026-08-09
 
 ### Fixed
