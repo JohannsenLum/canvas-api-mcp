@@ -248,13 +248,43 @@ async def do_list_assignments(
 async def do_get_assignment(
     client: CanvasClient, course_id: int, assignment_id: int
 ) -> dict:
+    # GET assignment only accepts include[]=submission (among others). Comments and
+    # rubric assessments live on the submissions endpoint — Canvas silently drops
+    # unrecognised include[] values on the assignment route.
     response = await client.request(
         "GET",
         f"courses/{course_id}/assignments/{assignment_id}",
         params={"include[]": ["submission"]},
     )
     assignment = response.data or {}
-    return {
+    raw_submission = assignment.get("submission")
+    submission: dict[str, Any] = (
+        dict(raw_submission) if isinstance(raw_submission, dict) else {}
+    )
+
+    note: str | None = None
+    try:
+        sub_response = await client.request(
+            "GET",
+            f"courses/{course_id}/assignments/{assignment_id}/submissions/self",
+            params={"include[]": ["submission_comments", "rubric_assessment"]},
+        )
+        detailed = sub_response.data or {}
+        if isinstance(detailed, dict):
+            # Prefer fields from the submissions endpoint (especially comments / rubric).
+            submission = {**submission, **detailed}
+    except CanvasError as exc:
+        note = (
+            "Assignment loaded, but submission comments/rubric could not be fetched: "
+            f"{exc.message}"
+        )
+    except httpx.HTTPError as exc:
+        note = (
+            "Assignment loaded, but submission comments/rubric could not be fetched: "
+            f"{exc}"
+        )
+
+    result: dict[str, Any] = {
         "id": assignment.get("id"),
         "name": assignment.get("name"),
         "description": assignment.get("description"),
@@ -266,8 +296,11 @@ async def do_get_assignment(
         "allowed_extensions": assignment.get("allowed_extensions", []),
         "html_url": assignment.get("html_url"),
         "rubric": assignment.get("rubric", []),
-        "submission": assignment.get("submission"),
+        "submission": submission if submission else raw_submission,
     }
+    if note:
+        result["note"] = note
+    return result
 
 
 async def do_my_submission(
