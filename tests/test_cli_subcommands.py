@@ -70,7 +70,7 @@ async def test_run_test_exits_nonzero_and_surfaces_canvas_error(capsys):
     assert "access token" in err.lower()
     assert SECRET_TOKEN not in err
 
-@pytest.mark.xfail(reason="waiting on transport-error translation PR to land on main", strict=True)
+
 @respx.mock
 async def test_run_test_never_leaks_token_on_transport_failure(capsys):
     respx.get("https://canvas.example.edu/api/v1/users/self").mock(
