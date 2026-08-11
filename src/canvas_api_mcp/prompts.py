@@ -1,5 +1,5 @@
 # src/canvas_api_mcp/prompts.py
-"""Workflow prompts — the reusable multi-step procedures."""
+"""Workflow prompts: the reusable multi-step procedures."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ def build_week_ahead(days: int) -> str:
         "when it is due, how many days away, and whether it is submitted.\n"
         "5. Flag anything due within 48 hours that is not yet submitted, and anything "
         "where two deadlines fall on the same day.\n"
-        "Do not guess at dates — use only values returned by the tools."
+        "Do not guess at dates. Use only values returned by the tools."
     )
 
 
@@ -29,7 +29,7 @@ def build_study_pack(course: str, topic: str) -> str:
         "2. Call course_content to see the modules and what is in them.\n"
         f"3. Identify the modules and files relevant to '{topic}'. Use list_files with "
         "a search term if the module names are not descriptive enough.\n"
-        "4. Call read_file on the most relevant files — prefer lecture slides and notes.\n"
+        "4. Call read_file on the most relevant files: prefer lecture slides and notes.\n"
         f"5. Produce a summary of '{topic}' grounded only in that material: the key "
         "definitions, the main results, and any worked examples you found.\n"
         "6. Cite which file each point came from, and say plainly if the material does "
@@ -47,7 +47,7 @@ def build_grade_check(course: str) -> str:
         "4. Compute how many points remain unearned and unattempted.\n"
         "5. Tell me my current standing, what is still outstanding, and what I would "
         "need on the remaining work to reach the next grade boundary.\n"
-        "State your assumptions about weighting explicitly — if the grading scheme is "
+        "State your assumptions about weighting explicitly: if the grading scheme is "
         "not visible via the API, say so instead of inventing one."
     )
 

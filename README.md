@@ -5,21 +5,21 @@
 <h2 align="center">Never miss an assignment deadline again.</h2>
 
 <p align="center">
-  Ask your AI what's due and it reads the answer straight from Canvas —<br>
+  Ask your AI what's due and it reads the answer straight from Canvas:<br>
   real deadlines, real submission status, no copying anything across.
 </p>
 
-An MCP server for Canvas LMS. 15 curated tools for everyday student work, plus a
+An MCP server for Canvas LMS. 16 curated tools for everyday student work, plus a
 gateway that reaches every endpoint your Canvas instance exposes.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/JohannsenLum/canvas-api-mcp/main/assets/header.svg"
-       alt="Terminal. Question one: 'what mods am I taking this sem?' — answered instantly by the curated my_courses tool (CS3230, CS2040S, MA2001, GEA1000). Question two: 'what groups am I in?' — no curated tool covers it, so search_canvas_api finds GET /v1/users/self/groups among 1,116 Canvas endpoints and canvas_request executes it. 17 tools · 1,116 endpoints reachable · 120 tests · MIT."
+       alt="Terminal. Question one: 'what mods am I taking this sem?' Answered instantly by the curated my_courses tool (CS3230, CS2040S, MA2001, GEA1000). Question two: 'what groups am I in?' No curated tool covers it, so search_canvas_api finds GET /v1/users/self/groups among 1,116 Canvas endpoints and canvas_request executes it. 18 tools · 1,116 endpoints reachable · 149 tests · MIT."
        width="840">
 </p>
 
 **📖 Documentation: [mcp.johannsenlum.com/canvas-lms](https://mcp.johannsenlum.com/canvas-lms)**
-— [install guide](https://mcp.johannsenlum.com/canvas-lms/install) ·
+· [install guide](https://mcp.johannsenlum.com/canvas-lms/install) ·
 [tool reference](https://mcp.johannsenlum.com/canvas-lms/tools) ·
 [skills](https://mcp.johannsenlum.com/canvas-lms/skills) ·
 [compliance](https://mcp.johannsenlum.com/canvas-lms/compliance)
@@ -40,33 +40,33 @@ gateway that reaches every endpoint your Canvas instance exposes.
 Real prompts, and which tool answers them.
 
 > **You:** What's due this week?
-> **Claude:** *(calls `whats_due`)* — You have 3 things due: Problem Set 4 (Thu,
+> **Claude:** *(calls `whats_due`)*: You have 3 things due: Problem Set 4 (Thu,
 > CS3230), a discussion reply (Fri, IS4302), and the Milestone 2 report (Sun,
 > EE2211).
 
 > **You:** How am I doing in my databases course, and what's on the syllabus for
 > week 6?
-> **Claude:** *(calls `my_grades`, then `get_page` for the syllabus, then
-> `course_content` for the week 6 module)* — You're at 87% overall. Week 6 covers
+> **Claude:** *(calls `my_grades`, then `get_syllabus`, then
+> `course_content` for the week 6 module)*: You're at 87% overall. Week 6 covers
 > normalization and has a reading plus a lab file due Friday.
 
 > **You:** Summarize the PDF lecture notes for lecture 8 and pull up my submission
 > for the essay so I can see the feedback.
 > **Claude:** *(calls `list_files` + `read_file` for the PDF, then `my_submission`
-> for the essay)* — ...
+> for the essay)*: ...
 
 > **You:** Reply to the "Project teams" discussion and say I'm free after 3pm for
 > the group meeting.
-> **Claude:** *(calls `post_discussion_reply` ✏️)* — Posted to the thread.
+> **Claude:** *(calls `post_discussion_reply` ✏️)*: Posted to the thread.
 
 > **You:** Has Canvas ever given me quiz statistics broken down by question, across
 > the whole semester?
 > **Claude:** *(calls `search_canvas_api` to find the right endpoint, then
-> `canvas_request` to call it)* — ...
+> `canvas_request` to call it)*: ...
 
 The last example is the point of the gateway tools: if an endpoint exists on your
 Canvas instance, `search_canvas_api` can find it and `canvas_request` can call it,
-even though only 15 tools are hand-curated.
+even though only 16 tools are hand-curated.
 
 ## Install
 
@@ -78,6 +78,12 @@ even though only 15 tools are hand-curated.
   **"+ New access token"** button. Full walkthrough with screenshots:
   [mcp.johannsenlum.com/canvas-lms/install](https://mcp.johannsenlum.com/canvas-lms/install).
 
+  **Note that the token expires.** Since Instructure's October 2025 security update,
+  accounts holding only student roles must set an expiry no more than 120 days out,
+  and institutions often cap it lower (NUS allows 90). Write the date down: an expired
+  token makes every tool return `401` at once, which looks like a broken install rather
+  than a credential that simply ran out.
+
 ### Running the server
 
 `canvas-api-mcp` is published on PyPI. Run it with:
@@ -87,7 +93,7 @@ uvx canvas-api-mcp
 ```
 
 **Install from source (contributors / unreleased `main`).** Not part of the
-normal install path above — only needed if you want the latest unreleased
+normal install path above, only needed if you want the latest unreleased
 code instead of the published PyPI release:
 
 ```bash
@@ -104,7 +110,7 @@ uv sync
 
 ### Quick install (one-click)
 
-One-click deeplinks exist for Cursor, VS Code, and LM Studio only — no other
+One-click deeplinks exist for Cursor, VS Code, and LM Studio only. No other
 client has a documented install-link format. These prefill the config below but
 still need `CANVAS_BASE_URL` and `CANVAS_TOKEN` filled in afterward.
 
@@ -129,7 +135,7 @@ transmitted anywhere except directly to your Canvas instance.
 
 <a id="config-claude-code"></a>
 <details>
-<summary><strong>Claude Code</strong> — <code>~/.claude.json</code></summary>
+<summary><strong>Claude Code</strong>: <code>~/.claude.json</code></summary>
 
 ```jsonc
 {
@@ -150,13 +156,13 @@ transmitted anywhere except directly to your Canvas instance.
 
 <a id="config-claude-desktop"></a>
 <details>
-<summary><strong>Claude Desktop</strong> — <code>claude_desktop_config.json</code></summary>
+<summary><strong>Claude Desktop</strong>: <code>claude_desktop_config.json</code></summary>
 
 macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
 No one-click install exists for Claude Desktop (it installs `.mcpb` bundles, not
-deeplinks) — copy this JSON in via **Settings → Developer → Edit Config**:
+deeplinks). Copy this JSON in via **Settings → Developer → Edit Config**:
 
 ```jsonc
 {
@@ -176,7 +182,7 @@ deeplinks) — copy this JSON in via **Settings → Developer → Edit Config**:
 
 <a id="config-cursor"></a>
 <details>
-<summary><strong>Cursor</strong> — <code>~/.cursor/mcp.json</code></summary>
+<summary><strong>Cursor</strong>: <code>~/.cursor/mcp.json</code></summary>
 
 Fallback for the button above, or if you'd rather paste it directly:
 
@@ -198,7 +204,7 @@ Fallback for the button above, or if you'd rather paste it directly:
 
 <a id="config-vscode"></a>
 <details>
-<summary><strong>VS Code</strong> — <code>.vscode/mcp.json</code></summary>
+<summary><strong>VS Code</strong>: <code>.vscode/mcp.json</code></summary>
 
 Fallback for the button above, or if you'd rather paste it directly. Note VS
 Code uses a `servers` key, not `mcpServers`:
@@ -222,7 +228,7 @@ Code uses a `servers` key, not `mcpServers`:
 
 <a id="config-lmstudio"></a>
 <details>
-<summary><strong>LM Studio</strong> — <code>mcp.json</code> (Program → Install → Edit mcp.json)</summary>
+<summary><strong>LM Studio</strong>: <code>mcp.json</code> (Program → Install → Edit mcp.json)</summary>
 
 Fallback for the button above, or if you'd rather paste it directly:
 
@@ -244,9 +250,9 @@ Fallback for the button above, or if you'd rather paste it directly:
 
 <a id="config-zed"></a>
 <details>
-<summary><strong>Zed</strong> — <code>settings.json</code></summary>
+<summary><strong>Zed</strong>: <code>settings.json</code></summary>
 
-No deeplink exists for Zed — add this under `context_servers` in your Zed
+No deeplink exists for Zed. Add this under `context_servers` in your Zed
 settings:
 
 ```jsonc
@@ -268,9 +274,9 @@ settings:
 
 <a id="config-windsurf"></a>
 <details>
-<summary><strong>Windsurf</strong> — <code>~/.codeium/windsurf/mcp_config.json</code></summary>
+<summary><strong>Windsurf</strong>: <code>~/.codeium/windsurf/mcp_config.json</code></summary>
 
-No deeplink exists for Windsurf — it only resolves servers from its own
+No deeplink exists for Windsurf. It only resolves servers from its own
 registry, so this has to be pasted in manually via **Windsurf Settings → MCP
 Servers → Edit raw config**:
 
@@ -294,7 +300,8 @@ Servers → Edit raw config**:
 
 | Tool | What it does |
 |---|---|
-| `whoami` | Identity, your role in each course, and your calendar feed link |
+| `whoami` | Identity and your role in each course |
+| `get_calendar_feed_url` | Your private calendar `.ics` link (only when you ask for it) |
 | `my_courses` | Active courses with code, term, role |
 | `whats_due` | Everything due, soonest first |
 | `my_grades` | Current score per course |
@@ -306,7 +313,8 @@ Servers → Edit raw config**:
 | `course_content` | Modules and their contents |
 | `list_files` | Files in a course |
 | `read_file` | Extract text from PDF/DOCX/PPTX/text |
-| `get_page` | A Canvas page, e.g. the syllabus |
+| `get_page` | A Canvas wiki page by slug |
+| `get_syllabus` | A course's syllabus |
 | `read_discussion` | Topics, or one topic's replies |
 | `post_discussion_reply` ✏️ | Post to a discussion |
 | `search_canvas_api` | Find any endpoint by keyword (gateway) |
@@ -317,7 +325,7 @@ Servers → Edit raw config**:
 (GET calls through `canvas_request` are read-only).
 
 `search_canvas_api` + `canvas_request` reach all ~1,116 endpoints your instance
-exposes. What they may do is decided by Canvas from your token's permissions — a
+exposes. What they may do is decided by Canvas from your token's permissions: a
 teacher token unlocks educator endpoints with no change to this server.
 
 ## Prompts
@@ -339,7 +347,7 @@ npx skills add JohannsenLum/canvas-api-mcp
 
 ## Other institutions
 
-Works with any Canvas instance — set `CANVAS_BASE_URL`. The catalog of ~1,116
+Works with any Canvas instance: set `CANVAS_BASE_URL`. The catalog of ~1,116
 endpoints ships inside the package at
 `canvas_api_mcp/data/catalog.json`. To match your deployment's exact feature
 set, regenerate it:
@@ -355,7 +363,7 @@ python scripts/build_catalog.py https://canvas.yourschool.edu -o data/catalog.js
   integrity rules of essentially every institution, and Canvas's API Policy
   explicitly prohibits use that violates them. That is on you.
 - **Rate limiting.** The client throttles against Canvas's published quota. Do not
-  remove it — overloading the API is prohibited.
+  remove it: overloading the API is prohibited.
 - **Course material.** `read_file` fetches materials for your own study. Do not
   redistribute them.
 - **Your token is password-equivalent.** It can read your grades and submit work as
@@ -377,16 +385,17 @@ CANVAS_LIVE_TESTS=1 uv run pytest tests/test_live.py -v
 ```
 
 Environment variables: `CANVAS_BASE_URL`, `CANVAS_TOKEN`, optional
-`CANVAS_MAX_PAGES` (default 10). See `env.template`.
+`CANVAS_MAX_PAGES` (default 10) and `CANVAS_TIMEOUT` (seconds, default 30).
+See `env.template`.
 
 ## Contributing
 
-Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for
+Issues and pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) for
 setup, the architectural rules worth knowing before you change anything, and the bar
 for adding a new curated tool.
 
 Found a security problem? **Do not open a public issue.** See
-[SECURITY.md](SECURITY.md) for private reporting — particularly important here, since
+[SECURITY.md](SECURITY.md) for private reporting, particularly important here, since
 this project handles password-equivalent Canvas tokens.
 
 Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
@@ -395,7 +404,7 @@ Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
 [MIT](LICENSE) © 2026 Johannsen Lum.
 
-Use it, change it, redistribute it, build something commercial on it — the only
+Use it, change it, redistribute it, build something commercial on it: the only
 condition is that you keep the copyright notice and licence text. It comes with no
 warranty of any kind.
 

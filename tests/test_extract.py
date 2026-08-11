@@ -195,7 +195,7 @@ async def test_read_file_raw_download_omits_authorization_header():
 
 @respx.mock
 async def test_read_file_download_error_never_echoes_the_signed_url():
-    """The download URL's verifier is a credential — it must not reach the caller."""
+    """The download URL's verifier is a credential: it must not reach the caller."""
     signed = f"https://files.example.edu/508?verifier={'v' * 16}"
     respx.get(f"{API}/files/508").mock(
         return_value=httpx.Response(200, json={

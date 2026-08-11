@@ -5,7 +5,7 @@
 ## Why
 
 <!-- What problem does this solve? If it adds a curated tool, say why the gateway
-     (search_canvas_api + canvas_request) isn't sufficient — every curated tool costs
+     (search_canvas_api + canvas_request) isn't sufficient: every curated tool costs
      context on every turn for every user. -->
 
 ## Checklist
@@ -20,10 +20,10 @@
 - [ ] Any write tool carries `destructiveHint=True`, `readOnlyHint=False`,
       `idempotentHint=False`
 - [ ] Any write tool states its concrete effect in the **first sentence** of its
-      description — that sentence is what the user sees in an approval prompt
+      description: that sentence is what the user sees in an approval prompt
 - [ ] `README.md`'s tool table is updated
 
 ## Testing
 
 <!-- How did you verify this? If you ran live tests against a real Canvas account,
-     say which endpoints — but never paste responses containing real data. -->
+     say which endpoints, but never paste responses containing real data. -->

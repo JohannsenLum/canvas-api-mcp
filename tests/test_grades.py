@@ -106,12 +106,32 @@ async def test_list_assignments_passes_bucket_filter():
 
 @respx.mock
 async def test_get_assignment_includes_submission_and_rubric():
-    route = respx.get(f"{API}/courses/101/assignments/1").mock(
+    """Comments/rubric live on the submissions endpoint, not GET assignment.
+
+    Mock the two endpoints separately and put comments only on the submissions
+    response so the test fails if the second call is dropped.
+    """
+    assignment_route = respx.get(f"{API}/courses/101/assignments/1").mock(
         return_value=httpx.Response(200, json={
             "id": 1, "name": "PS1", "description": "<p>Do it</p>",
             "due_at": "2026-08-12T15:59:00Z", "points_possible": 20,
             "rubric": [{"description": "Correctness", "points": 15}],
-            "submission": {"workflow_state": "unsubmitted"},
+            # Realistic Canvas response: assignment include[]=submission does not
+            # carry submission_comments or rubric_assessment.
+            "submission": {
+                "workflow_state": "graded",
+                "score": 15.0,
+            },
+        })
+    )
+    submission_route = respx.get(
+        f"{API}/courses/101/assignments/1/submissions/self"
+    ).mock(
+        return_value=httpx.Response(200, json={
+            "workflow_state": "graded",
+            "score": 15.0,
+            "submission_comments": [{"comment": "nudge"}],
+            "rubric_assessment": {"_123": {"points": 15}},
         })
     )
     client = CanvasClient(CFG)
@@ -120,7 +140,45 @@ async def test_get_assignment_includes_submission_and_rubric():
 
     assert result["name"] == "PS1"
     assert result["rubric"][0]["description"] == "Correctness"
-    assert "submission" in route.calls[0].request.url.params.get_list("include[]")
+    assert assignment_route.called
+    assert submission_route.called
+    assignment_includes = assignment_route.calls[0].request.url.params.get_list("include[]")
+    assert "submission" in assignment_includes
+    assert "submission_comments" not in assignment_includes
+    assert "rubric_assessment" not in assignment_includes
+    submission_includes = submission_route.calls[0].request.url.params.get_list("include[]")
+    assert "submission_comments" in submission_includes
+    assert "rubric_assessment" in submission_includes
+    # Comments only exist on the submissions mock, which proves the merge path ran.
+    # Comment text is fenced as untrusted (see tests/test_safety.py), so assert
+    # the payload survives inside the fence rather than comparing byte for byte.
+    assert "nudge" in result["submission"]["submission_comments"][0]["comment"]
+    assert result["submission"]["rubric_assessment"]["_123"]["points"] == 15
+    assert result["submission"]["score"] == 15.0
+    assert "note" not in result
+
+
+@respx.mock
+async def test_get_assignment_returns_note_when_submission_fetch_fails():
+    respx.get(f"{API}/courses/101/assignments/1").mock(
+        return_value=httpx.Response(200, json={
+            "id": 1, "name": "PS1", "description": "<p>Do it</p>",
+            "due_at": "2026-08-12T15:59:00Z", "points_possible": 20,
+            "rubric": [],
+            "submission": {"workflow_state": "unsubmitted"},
+        })
+    )
+    respx.get(f"{API}/courses/101/assignments/1/submissions/self").mock(
+        return_value=httpx.Response(403, json={"errors": [{"message": "forbidden"}]})
+    )
+    client = CanvasClient(CFG)
+    result = await do_get_assignment(client, 101, 1)
+    await client.aclose()
+
+    assert result["name"] == "PS1"
+    assert result["submission"]["workflow_state"] == "unsubmitted"
+    assert "note" in result
+    assert "submission comments/rubric" in result["note"]
 
 
 @respx.mock
@@ -137,7 +195,8 @@ async def test_my_submission_reports_score_and_comments():
     await client.aclose()
 
     assert result["score"] == 17.0
-    assert result["comments"][0]["comment"] == "Good work"
+    # Fenced as untrusted; the fence itself is asserted in tests/test_safety.py.
+    assert "Good work" in result["comments"][0]["comment"]
 
 
 @respx.mock

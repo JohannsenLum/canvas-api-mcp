@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 
@@ -13,9 +14,10 @@ def token_help(base_url: str | None = None) -> str:
     settings = f"{base_url}/profile/settings" if base_url else "<your-canvas>/profile/settings"
     return (
         f"Create one at {settings} -> Approved Integrations -> '+ New access token'. "
-        "Set an expiry rather than leaving it blank, and copy the token immediately — "
-        "Canvas shows it only once. Then put it in your MCP client config, e.g. "
-        '"env": {"CANVAS_TOKEN": "..."}. '
+        "Student accounts must set an expiry, capped at 120 days by Canvas and often "
+        "lower by the institution, so note the date: an expired token fails exactly "
+        "like a missing one. Copy the token immediately, Canvas shows it only once. "
+        'Then put it in your MCP client config, e.g. "env": {"CANVAS_TOKEN": "..."}. '
         f"Full walkthrough: {SETUP_GUIDE_URL}"
     )
 
@@ -33,6 +35,7 @@ class Config:
     base_url: str
     token: str
     max_pages: int = 10
+    timeout: float = 30.0
 
     @classmethod
     def from_env(cls, env: Mapping[str, str]) -> Config:
@@ -70,7 +73,23 @@ class Config:
         if max_pages < 1:
             raise ConfigError("CANVAS_MAX_PAGES must be at least 1")
 
-        return cls(base_url=base_url, token=token, max_pages=max_pages)
+        raw_timeout = (env.get("CANVAS_TIMEOUT") or "30").strip()
+        try:
+            timeout = float(raw_timeout)
+        except ValueError as exc:
+            raise ConfigError(
+                f"CANVAS_TIMEOUT must be a number of seconds, got: {raw_timeout!r}"
+            ) from exc
+        # isfinite before the comparison, not after. float() happily accepts "nan"
+        # and "inf", and every comparison against NaN is False, so `timeout <= 0`
+        # lets both through. An infinite timeout means httpx never gives up, which
+        # is the opposite of what someone setting a timeout wants.
+        if not math.isfinite(timeout) or timeout <= 0:
+            raise ConfigError("CANVAS_TIMEOUT must be a finite number greater than 0")
+
+        return cls(
+            base_url=base_url, token=token, max_pages=max_pages, timeout=timeout
+        )
 
     @property
     def api_root(self) -> str:

@@ -44,7 +44,7 @@ Two rules that are load-bearing:
   where auth, pagination, throttling, and error translation live, and it is the only
   place they should live.
 - **The server never simulates permissions.** Canvas decides what a token may do. Do not
-  add checks that pre-filter calls based on a user's role — surface Canvas's answer
+  add checks that pre-filter calls based on a user's role, surface Canvas's answer
   instead. A 403 with a clear message is correct behaviour.
 
 See [docs/DESIGN.md](docs/DESIGN.md) for why the architecture is three layers and why
@@ -60,7 +60,7 @@ phase 1 is student-scoped.
 - **Write tools must stay honest.** `submit_assignment`, `post_discussion_reply`, and
   `canvas_request` carry `destructiveHint=True` and state their effect in the first
   sentence of their description. That first sentence is what a user sees in an approval
-  prompt — it is the whole safety mechanism.
+  prompt: it is the whole safety mechanism.
 - **No curated educator tools yet.** Phase 1 is student-scoped for the reasons in
   DESIGN.md. Educator endpoints are already reachable through the gateway.
 
@@ -73,7 +73,7 @@ tool costs context on every turn for every user.
 If you do add one:
 
 1. Check the endpoint exists in `canvas_api_mcp/data/catalog.json`.
-2. Write the test first, against fixtures — not a live account.
+2. Write the test first, against fixtures, not a live account.
 3. Put it in the matching `tools/` module and register it in `server.py`.
 4. Give it accurate `ToolAnnotations`.
 5. Update the tool table in `README.md`.
@@ -81,16 +81,34 @@ If you do add one:
 ## Regenerating the endpoint catalog
 
 Every Canvas instance serves its own API spec, so the catalog can be rebuilt to match
-any deployment:
+any deployment. From a source checkout:
 
 ```bash
-uv run python scripts/build_catalog.py https://canvas.yourschool.edu \
+uv run canvas-api-mcp-build-catalog https://canvas.yourschool.edu \
   -o src/canvas_api_mcp/data/catalog.json
 ```
 
+The same command ships with the installed package, so users who never clone the repo
+can regenerate against their own institution too:
+
+```bash
+canvas-api-mcp-build-catalog https://canvas.yourschool.edu
+```
+
+With no `-o`, it writes to `~/.cache/canvas-api-mcp/catalog.json`, which `load_catalog`
+prefers over the bundled default. Resolution order is: explicit path, then
+`CANVAS_CATALOG_PATH`, then that cache file, then the catalog shipped in the wheel.
+
 ## Reporting bugs
 
-Use the issue templates — they ask for the Canvas instance, Python version, and MCP
+Use the issue templates: they ask for the Canvas instance, Python version, and MCP
 client, which are the three things needed to reproduce anything.
 
 Security problems go through [SECURITY.md](SECURITY.md), not public issues.
+
+## Code of conduct
+
+By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md). It carries
+two rules specific to this project, both about other people's data: never post a real
+access token, calendar feed URL, or signed download link, and never include another
+person's Canvas data in a bug report.
