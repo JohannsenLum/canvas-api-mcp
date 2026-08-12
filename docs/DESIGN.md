@@ -129,6 +129,7 @@ canvas-api-mcp/
     catalog.py                  spec fetch/parse/search
     identity.py                 whoami + per-course role, cached
     extract.py                  PDF/PPTX/DOCX -> text
+    safety.py                   fencing untrusted Canvas text, see below
     tools/
       orientation.py
       student.py
@@ -184,10 +185,57 @@ enabled feature set. Catalog rebuilds require no code changes.
 `search_canvas_api` ranks by keyword overlap across nickname, summary, and path, with an
 optional method filter.
 
+## Untrusted content
+
+This server returns text other people wrote. An instructor writes assignment briefs,
+announcements, syllabus bodies and grader comments; classmates write discussion replies.
+All of it lands in the same context window as the user's own instructions, and the same
+server registers tools that post publicly and submit work against a deadline.
+
+Canvas is a sharper case than the social-feed equivalent. Hostile text does not arrive from
+a stranger, it arrives inside a course announcement carrying the apparent authority of the
+student's own instructor, and announcements are normally restricted to teaching staff.
+
+`safety.py` marks that text as data:
+
+```
+clean(raw) -> truncate(raw, limit, field) -> fence(raw, "namespace.field")
+```
+
+`fence()` goes last and must stay last. It wraps content in an open/close tag pair carrying
+a random nonce generated **after** the content already exists, so nothing in the content can
+have been authored to match it. Fencing before truncating would let truncation cut off the
+closing delimiter, which removes the protection while leaving it looking present. `guard()`
+exists so call sites cannot get that order wrong.
+
+Content that merely quotes the tag family verbatim, hoping to be pattern-matched rather than
+nonce-matched, is rewritten to an inert marker.
+
+| Fenced | Not fenced |
+|---|---|
+| discussion topics and replies | ids, timestamps, grades, scores |
+| page and syllabus bodies | filenames, URLs, workflow states |
+| assignment descriptions | anything not authored as prose |
+| announcement messages | |
+| submission comments | |
+
+The exclusions are deliberate. Fencing a due date costs context and narrows nothing.
+
+`canvas_request` is the exception and says so in its own response. It reaches 1,116 endpoints
+whose shapes are unknown at author time, and fencing needs a string, so folding arbitrary
+JSON into one would destroy the structured access the tool exists to provide. It carries an
+`untrusted_content` notice stating plainly that its values are **not** individually fenced,
+rather than implying the guarantee the curated tools give.
+
+The other half of the mitigation is `dry_run` on the three tools that change something. A
+request to confirm that lives only in a tool description competes on equal terms with course
+content arguing the opposite. A description cannot stop a call; an early return can.
+
 ## Tool surface
 
 Write tools marked ✏️. All endpoint mappings verified against the catalog extracted from
-`canvas.nus.edu.sg` on 2026-08-07.
+`canvas.nus.edu.sg` on 2026-08-07, with `get_syllabus` and the `get_assignment` second call
+added in 1.0.0.
 
 ### Orientation (3)
 
@@ -204,12 +252,12 @@ Write tools marked ✏️. All endpoint mappings verified against the catalog ex
 | `whats_due` | `GET /v1/users/self/todo`, `GET /v1/users/self/upcoming_events`, `GET /v1/planner/items` |
 | `my_grades` | `GET /v1/courses/{course_id}/enrollments` |
 | `list_assignments` | `GET /v1/courses/{course_id}/assignments` |
-| `get_assignment` | `GET /v1/courses/{course_id}/assignments/{id}` |
+| `get_assignment` | `GET /v1/courses/{course_id}/assignments/{id}`, then `GET .../assignments/{id}/submissions/self` for comments and rubric. Two requests: the assignment route silently drops those `include[]` values |
 | `my_submission` | `GET /v1/courses/{course_id}/assignments/{assignment_id}/submissions/{user_id}` |
-| `submit_assignment` ✏️ | `POST /v1/courses/{course_id}/assignments/{assignment_id}/submissions` |
+| `submit_assignment` ✏️ | `POST /v1/courses/{course_id}/assignments/{assignment_id}/submissions`. `dry_run=True` returns the prepared payload without sending |
 | `course_announcements` | `GET /v1/announcements` |
 
-### Content (4)
+### Content (5)
 
 | Tool | Endpoints |
 |---|---|
@@ -217,13 +265,14 @@ Write tools marked ✏️. All endpoint mappings verified against the catalog ex
 | `list_files` | `GET /v1/courses/{course_id}/files` |
 | `read_file` | `GET /v1/files/{id}` + download + text extraction |
 | `get_page` | `GET /v1/courses/{course_id}/pages/{url_or_id}` |
+| `get_syllabus` | `GET /v1/courses/{course_id}?include[]=syllabus_body`. Canvas stores the syllabus on the course object, not as a wiki page, so `get_page` cannot reach it |
 
 ### Discussions (2)
 
 | Tool | Endpoints |
 |---|---|
 | `read_discussion` | `GET /v1/courses/{course_id}/discussion_topics`, `.../{topic_id}/view` |
-| `post_discussion_reply` ✏️ | `POST /v1/courses/{course_id}/discussion_topics/{topic_id}/entries` |
+| `post_discussion_reply` ✏️ | `POST /v1/courses/{course_id}/discussion_topics/{topic_id}/entries`. `dry_run=True` returns the prepared reply without posting |
 
 ### Gateway (2)
 
