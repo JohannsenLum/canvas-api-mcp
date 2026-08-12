@@ -64,7 +64,7 @@ Instructure ships an endpoint.
 
 Three layers.
 
-**Layer 1: Curated tools (16).** Named after jobs, not endpoints. Carry real ergonomics:
+**Layer 1: Curated tools (17).** Named after jobs, not endpoints. Carry real ergonomics:
 `whats_due()` fans out to multiple endpoints and merges results, because that is what the
 question means.
 
@@ -74,7 +74,7 @@ of all 1,116 endpoints (method, path, nickname, summary, parameters).
 **Layer 3: Passthrough.** `canvas_request(method, path, params, body, dry_run)` executes
 any endpoint the search surfaces, subject to whatever the caller's token permits.
 
-Result: complete API reach at 18 tool schemas (16 curated + 2 gateway).
+Result: complete API reach at 19 tool schemas (17 curated + 2 gateway).
 
 ```
 "what's due this week"      -> Layer 1, one call, no discovery
