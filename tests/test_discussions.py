@@ -143,3 +143,24 @@ async def test_empty_message_is_rejected_without_sending():
 
     assert route.called is False
     assert result["error"] is True
+    
+async def test_flattened_entries_carry_participant_display_names():
+    view = {
+        "view": [{"id": 1, "user_id": 42, "message": "hello", "created_at": "2026-01-01T00:00:00Z", "replies": []}],
+        "participants": [
+            {"id": 42, "display_name": "Alice Tan"},
+            {"id": 9, "display_name": "Bob Lee"},
+        ],
+    }
+    entries = _flatten(
+        view["view"],
+        {p["id"]: p["display_name"] for p in view["participants"]},
+    )
+    assert entries[0]["author_name"] == "Alice Tan"
+    assert entries[0]["user_id"] == 42
+
+
+async def test_flatten_handles_unknown_participant_gracefully():
+    view = [{"id": 1, "user_id": 999, "message": "hi", "replies": []}]
+    entries = _flatten(view, {})
+    assert entries[0]["author_name"] is None
