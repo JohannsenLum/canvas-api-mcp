@@ -155,11 +155,13 @@ async def test_get_assignment_includes_submission_and_rubric():
     assert "nudge" in result["submission"]["submission_comments"][0]["comment"]
     assert result["submission"]["rubric_assessment"]["_123"]["points"] == 15
     assert result["submission"]["score"] == 15.0
-    assert "note" not in result
+    # `warnings` is always present, empty when nothing failed, matching whats_due.
+    # Always-present is easier for a caller to branch on than sometimes-absent.
+    assert result["warnings"] == []
 
 
 @respx.mock
-async def test_get_assignment_returns_note_when_submission_fetch_fails():
+async def test_get_assignment_warns_when_submission_fetch_fails():
     respx.get(f"{API}/courses/101/assignments/1").mock(
         return_value=httpx.Response(200, json={
             "id": 1, "name": "PS1", "description": "<p>Do it</p>",
@@ -177,8 +179,10 @@ async def test_get_assignment_returns_note_when_submission_fetch_fails():
 
     assert result["name"] == "PS1"
     assert result["submission"]["workflow_state"] == "unsubmitted"
-    assert "note" in result
-    assert "submission comments/rubric" in result["note"]
+    # Same shape as whats_due: a list under `warnings`, not a singular `note`.
+    assert result["warnings"], "a failed submissions fetch must be reported"
+    assert "submission comments and rubric" in result["warnings"][0]
+    assert "note" not in result, "the old singular key must be gone"
 
 
 @respx.mock

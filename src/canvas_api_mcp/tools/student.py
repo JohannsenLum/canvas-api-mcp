@@ -285,7 +285,10 @@ async def do_get_assignment(
         dict(raw_submission) if isinstance(raw_submission, dict) else {}
     )
 
-    note: str | None = None
+    # Matches whats_due's convention rather than inventing a second one: a list,
+    # always present, so a caller checks one key across the whole tool surface
+    # instead of remembering which tools report partial failure differently.
+    warnings: list[str] = []
     try:
         sub_response = await client.request(
             "GET",
@@ -301,14 +304,9 @@ async def do_get_assignment(
                     submission["submission_comments"]
                 )
     except CanvasError as exc:
-        note = (
-            "Assignment loaded, but submission comments/rubric could not be fetched: "
-            f"{exc.message}"
-        )
-    except httpx.HTTPError as exc:
-        note = (
-            "Assignment loaded, but submission comments/rubric could not be fetched: "
-            f"{exc}"
+        warnings.append(
+            "Assignment loaded, but submission comments and rubric could not be "
+            f"fetched: {exc.message}"
         )
 
     result: dict[str, Any] = {
@@ -327,9 +325,8 @@ async def do_get_assignment(
         "html_url": assignment.get("html_url"),
         "rubric": assignment.get("rubric", []),
         "submission": submission if submission else raw_submission,
+        "warnings": warnings,
     }
-    if note:
-        result["note"] = note
     return result
 
 
