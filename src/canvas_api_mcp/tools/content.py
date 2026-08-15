@@ -154,7 +154,7 @@ async def do_read_file(
     return {
         "display_name": display_name,
         "content_type": content_type,
-        "text": text[:max_chars],
+        "text": guard(text[:max_chars], BODY_LIMIT, "file.text"),
         "truncated": total > max_chars,
         "chars": total,
     }

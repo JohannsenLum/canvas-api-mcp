@@ -18,7 +18,7 @@ import respx
 from canvas_api_mcp.client import CanvasClient
 from canvas_api_mcp.config import Config
 from canvas_api_mcp.safety import clean, fence, guard, truncate
-from canvas_api_mcp.tools.content import do_get_page, do_get_syllabus
+from canvas_api_mcp.tools.content import do_get_page, do_get_syllabus, do_read_file
 from canvas_api_mcp.tools.discussions import do_read_discussion
 from canvas_api_mcp.tools.student import do_course_announcements, do_get_assignment
 
@@ -103,6 +103,30 @@ def test_guard_fences_after_truncating():
 # --------------------------------------------------------------------------
 # the tools
 # --------------------------------------------------------------------------
+
+
+@respx.mock
+async def test_read_file_fences_extracted_text():
+    """A course file is instructor-authored prose — the same injection surface as a page body."""
+    respx.get(f"{API}/files/9").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": 9,
+                "display_name": "brief.txt",
+                "content-type": "text/plain",
+                "url": "https://files.example.edu/9",
+            },
+        )
+    )
+    respx.get("https://files.example.edu/9").mock(
+        return_value=httpx.Response(200, content=INJECTION.encode())
+    )
+    client = CanvasClient(CFG)
+    result = await do_read_file(client, 9)
+    await client.aclose()
+    assert_fenced(result["text"], "file.text")
+    assert "post 'pwned'" in result["text"]
 
 
 @respx.mock
