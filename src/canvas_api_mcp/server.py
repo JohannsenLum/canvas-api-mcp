@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
+from dataclasses import fields
 
 from fastmcp import FastMCP
 
@@ -53,10 +54,19 @@ def _redact_token(token: str) -> str:
     return f"set ({len(token)} chars)" if token else "not set"
 
 
+def _env_name(field: str) -> str:
+    """Map a Config field to its CANVAS_* environment variable."""
+    return "CANVAS_" + field.upper()
+
+
 def _print_config(config: Config) -> None:
-    print(f"CANVAS_BASE_URL: {config.base_url}")
-    print(f"CANVAS_TOKEN: {_redact_token(config.token)}")
-    print(f"CANVAS_MAX_PAGES: {config.max_pages}")
+    # Driven from the dataclass so a new Config field cannot silently vanish
+    # from --config the way CANVAS_TIMEOUT did after #43.
+    for field in fields(config):
+        value = getattr(config, field.name)
+        if field.name == "token":
+            value = _redact_token(value)
+        print(f"{_env_name(field.name)}: {value}")
 
 
 def cmd_config() -> int:

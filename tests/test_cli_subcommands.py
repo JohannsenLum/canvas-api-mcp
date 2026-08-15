@@ -1,3 +1,5 @@
+from dataclasses import fields
+
 import httpx
 import pytest
 import respx
@@ -13,11 +15,15 @@ CFG = Config(base_url="https://canvas.example.edu", token=SECRET_TOKEN, max_page
 # ---- --config ---------------------------------------------------------
 
 
-def test_config_prints_base_url_and_max_pages(capsys):
+def test_config_prints_every_config_field(capsys):
+    """--config is derived from Config fields, so a new setting cannot vanish."""
     _print_config(CFG)
     out = capsys.readouterr().out
+    for field in fields(Config):
+        assert f"CANVAS_{field.name.upper()}:" in out
     assert CFG.base_url in out
     assert str(CFG.max_pages) in out
+    assert str(CFG.timeout) in out
 
 
 def test_config_never_leaks_token(capsys):
