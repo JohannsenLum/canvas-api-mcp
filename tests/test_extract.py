@@ -75,7 +75,8 @@ async def test_read_file_fetches_metadata_then_content():
     await client.aclose()
 
     assert result["display_name"] == "notes.txt"
-    assert result["text"] == "Kruskal and Prim"
+    assert "Kruskal and Prim" in result["text"]
+    assert "CANVAS-UNTRUSTED-DATA" in result["text"]
     assert result["truncated"] is False
 
 
@@ -94,9 +95,10 @@ async def test_read_file_truncates_long_text():
     result = await do_read_file(client, 502, max_chars=50)
     await client.aclose()
 
-    assert len(result["text"]) == 50
     assert result["truncated"] is True
     assert result["chars"] == 200
+    assert "CANVAS-UNTRUSTED-DATA" in result["text"]
+    assert "x" * 50 in result["text"]
 
 
 @respx.mock
