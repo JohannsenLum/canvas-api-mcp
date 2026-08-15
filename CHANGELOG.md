@@ -7,6 +7,41 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-12
+
+### Changed
+
+- **Breaking, minor: `get_assignment` reports partial failure under `warnings`,
+  not `note`.** `whats_due` already reported partial failure as
+  `warnings: list[str]`, always present, because it merges three sources that can
+  fail independently. `get_assignment` had invented a second shape for the same
+  idea: a singular `note` string, present only on failure, appearing nowhere else
+  in the tool surface. A caller that learned the convention from one tool would
+  not find it in the other. `warnings` is now always present and empty when
+  nothing failed. The `note` key is gone.
+
+  `note` remains on the two `dry_run` paths, where it explains a deliberate no-op
+  on a successful call rather than reporting a failure. That is a different thing.
+
+### Fixed
+
+- **Removed an unreachable `except httpx.HTTPError` branch** in
+  `do_get_assignment`. `CanvasClient.request` already converts transport-level
+  httpx errors into `CanvasError` before they escape, so the branch could never
+  run. It carried an interpolated `f"{exc}"`, the pattern this project rejects
+  because exception text can embed a request URL.
+
+### Documentation
+
+- **`docs/DESIGN.md` matches the code again.** It never mentioned `get_syllabus`,
+  said nothing at all about the untrusted-content fencing added in 1.0.0, and
+  listed `get_assignment` as a single request when it has been two since #30,
+  which misleads anyone reasoning about the tool's cost. Adds an "Untrusted
+  content" section covering the pipeline, why `fence` is outermost, why the nonce
+  is generated after the content exists, and a table of what is deliberately not
+  fenced. The tool table and the registered tools now agree exactly.
+
+
 ## [1.0.0] - 2026-08-10
 
 First stable release. The tool surface, the return shapes and the configuration
