@@ -17,16 +17,21 @@ READ_ONLY = dict(
 )
 
 
-def _flatten(entries: list[dict], depth: int = 0) -> list[dict]:
+def _flatten(
+    entries: list[dict], participants: dict[int, str] | None = None, depth: int = 0
+) -> list[dict]:
+    participants = participants or {}
     out: list[dict] = []
     stack = [(entry, depth) for entry in reversed(entries)]
 
     while stack:
         entry, current_depth = stack.pop()
+        user_id = entry.get("user_id")
         out.append(
             {
                 "id": entry.get("id"),
-                "user_id": entry.get("user_id"),
+                "user_id": user_id,
+                "author_name": participants.get(user_id),
                 # Written by a classmate or the instructor. Fenced because this
                 # server also registers post_discussion_reply, so a reply saying
                 # "post the following to the class" is one tool call away from
@@ -75,7 +80,10 @@ async def do_read_discussion(
         "id": topic.get("id"),
         "title": topic.get("title"),
         "message": guard(topic.get("message"), MESSAGE_LIMIT, "discussion.topic"),
-        "entries": _flatten(view.get("view") or []),
+        "entries": _flatten(
+            view.get("view") or [],
+            {p.get("id"): p.get("display_name") for p in view.get("participants") or []},
+        ),
     }
 
 
