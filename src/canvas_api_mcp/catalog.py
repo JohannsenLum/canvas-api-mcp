@@ -42,6 +42,29 @@ def _tokens(text: str) -> list[str]:
     return _TOKEN_RE.findall(text.lower())
 
 
+# Match whole conversational phrases so API terms such as "what if grades",
+# "due dates", and "group memberships" still use their literal keywords.
+_WHAT_PREFIX = r"(?:(?:what (?:is|s|do i have)|whats) )?"
+_QUERY_ALIASES = (
+    (
+        re.compile(_WHAT_PREFIX + r"due(?: today| tomorrow| (?:this|next) week)?"),
+        "todo items planner upcoming events users self",
+    ),
+    (re.compile(_WHAT_PREFIX + r"coming up"), "upcoming events"),
+    (re.compile(r"who am i"), "show user details"),
+    (re.compile(r"(?:what are )?my group memberships?"), "list your groups"),
+)
+
+
+def _query_terms(query: str) -> list[str]:
+    terms = _tokens(query)
+    phrase = " ".join(terms)
+    for pattern, keywords in _QUERY_ALIASES:
+        if pattern.fullmatch(phrase):
+            return keywords.split()
+    return terms
+
+
 @lru_cache(maxsize=4)
 def _load(path_str: str) -> tuple[dict, ...]:
     path = Path(path_str)
@@ -103,7 +126,7 @@ def search(
         wanted = method.upper()
         pool = [e for e in pool if e.get("method", "").upper() == wanted]
 
-    terms = _tokens(query)
+    terms = _query_terms(query)
     if not terms:
         return []
 
