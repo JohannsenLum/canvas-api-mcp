@@ -213,7 +213,7 @@ async def do_whats_due(client: CanvasClient, days: int = 14) -> dict[str, Any]:
     }
 
 
-async def do_my_grades(client: CanvasClient, course_id: int | None = None) -> list[dict]:
+async def do_my_grades(client: CanvasClient, course_id: int | None = None) -> dict[str, Any]:
     response = await client.request(
         "GET",
         "courses",
@@ -238,12 +238,12 @@ async def do_my_grades(client: CanvasClient, course_id: int | None = None) -> li
                 "final_score": enrolment.get("computed_final_score"),
             }
         )
-    return out
+    return {"grades": out, "truncated": response.truncated}
 
 
 async def do_list_assignments(
     client: CanvasClient, course_id: int, bucket: str | None = None
-) -> list[dict]:
+) -> dict[str, Any]:
     params: dict[str, Any] = {"include[]": ["submission"], "per_page": 100}
     if bucket:
         params["bucket"] = bucket
@@ -265,7 +265,7 @@ async def do_list_assignments(
                 "score": submission.get("score"),
             }
         )
-    return out
+    return {"assignments": out, "truncated": response.truncated}
 
 
 async def do_get_assignment(
@@ -354,21 +354,23 @@ async def do_my_submission(
 
 async def do_course_announcements(
     client: CanvasClient, course_id: int | None = None, days: int = 14
-) -> list[dict]:
+) -> dict[str, Any]:
     start = datetime.now(timezone.utc) - timedelta(days=days)
     params: dict[str, Any] = {
         "start_date": start.date().isoformat(),
         "per_page": 50,
     }
+    courses_truncated = False
     if course_id is not None:
         params["context_codes[]"] = [f"course_{course_id}"]
     else:
         courses = await client.request(
             "GET", "courses", params={"enrollment_state": "active", "per_page": 100}
         )
+        courses_truncated = courses.truncated
         codes = [f"course_{c['id']}" for c in (courses.data or []) if c.get("id")]
         if not codes:
-            return []
+            return {"announcements": [], "truncated": courses_truncated}
         params["context_codes[]"] = codes
 
     response = await client.request("GET", "announcements", params=params)
@@ -387,7 +389,7 @@ async def do_course_announcements(
                 "course_id": _course_id_from_context(item.get("context_code")),
             }
         )
-    return out
+    return {"announcements": out, "truncated": courses_truncated or response.truncated}
 
 
 SUBMISSION_REQUIREMENTS = {
@@ -497,13 +499,15 @@ def register(mcp: FastMCP, get_client) -> None:
     @mcp.tool(
         description=(
             "Report the user's current grade and score in each course, or in one course "
-            "if course_id is given. Use this for 'how am I doing' and standing questions."
+            "if course_id is given. Use this for 'how am I doing' and standing questions. "
+            "Returns `grades` and a `truncated` flag indicating whether pagination "
+            "stopped before the last page."
         ),
         annotations=ToolAnnotations(title="My Grades", **READ_ONLY),
     )
     async def my_grades(
         course_id: int | None = Field(default=None, description="Limit to one course; omit for all"),
-    ) -> list[dict]:
+    ) -> dict:
         """Current scores per course."""
         return await do_my_grades(get_client(), course_id=course_id)
 
@@ -511,7 +515,8 @@ def register(mcp: FastMCP, get_client) -> None:
         description=(
             "List a course's assignments with due dates, points, and whether the user "
             "has submitted each one. Use bucket to filter to upcoming, overdue, "
-            "unsubmitted, or past work."
+            "unsubmitted, or past work. Returns `assignments` and a `truncated` flag "
+            "indicating whether pagination stopped before the last page."
         ),
         annotations=ToolAnnotations(title="List Assignments", **READ_ONLY),
     )
@@ -521,7 +526,7 @@ def register(mcp: FastMCP, get_client) -> None:
             default=None,
             description="One of: past, overdue, undated, ungraded, unsubmitted, upcoming, future",
         ),
-    ) -> list[dict]:
+    ) -> dict:
         """Assignments in a course."""
         return await do_list_assignments(get_client(), course_id, bucket=bucket)
 
@@ -556,14 +561,15 @@ def register(mcp: FastMCP, get_client) -> None:
     @mcp.tool(
         description=(
             "List recent course announcements across all active courses, or one course "
-            "if course_id is given."
+            "if course_id is given. Returns `announcements` and a `truncated` flag "
+            "indicating whether pagination stopped before the last page."
         ),
         annotations=ToolAnnotations(title="Announcements", **READ_ONLY),
     )
     async def course_announcements(
         course_id: int | None = Field(default=None, description="Limit to one course; omit for all"),
         days: int = Field(default=14, description="How many days back to look"),
-    ) -> list[dict]:
+    ) -> dict:
         """Recent announcements."""
         return await do_course_announcements(get_client(), course_id=course_id, days=days)
 

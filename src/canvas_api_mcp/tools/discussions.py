@@ -64,7 +64,8 @@ async def do_read_discussion(
                     "html_url": t.get("html_url"),
                 }
                 for t in response.data or []
-            ]
+            ],
+            "truncated": response.truncated,
         }
 
     topic = (
@@ -129,9 +130,10 @@ async def do_post_discussion_reply(
 def register(mcp: FastMCP, get_client) -> None:
     @mcp.tool(
         description=(
-            "Read course discussions. With only course_id, lists the discussion topics. "
-            "With topic_id, returns that topic and all its replies flattened in order, "
-            "with a depth field showing nesting."
+            "Read course discussions. With only course_id, lists the discussion topics "
+            "under `topics` along with a `truncated` flag indicating whether pagination "
+            "stopped before the last page. With topic_id, returns that topic and all its "
+            "replies flattened in order, with a depth field showing nesting."
         ),
         annotations=ToolAnnotations(title="Read Discussion", **READ_ONLY),
     )

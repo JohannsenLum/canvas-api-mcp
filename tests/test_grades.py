@@ -1,9 +1,11 @@
 # tests/test_grades.py
 import httpx
 import respx
+from fastmcp import Client, FastMCP
 
 from canvas_api_mcp.client import CanvasClient
 from canvas_api_mcp.config import Config
+from canvas_api_mcp.tools import student as student_tools
 from canvas_api_mcp.tools.student import (
     do_course_announcements,
     do_get_assignment,
@@ -13,7 +15,12 @@ from canvas_api_mcp.tools.student import (
 )
 
 CFG = Config(base_url="https://canvas.example.edu", token="tok", max_pages=10)
+SMALL = Config(base_url="https://canvas.example.edu", token="tok", max_pages=2)
 API = "https://canvas.example.edu/api/v1"
+
+
+def _link(url: str) -> str:
+    return f'<{url}>; rel="next"'
 
 
 @respx.mock
@@ -27,13 +34,16 @@ async def test_my_grades_extracts_scores_from_enrolments():
         ])
     )
     client = CanvasClient(CFG)
-    grades = await do_my_grades(client)
+    result = await do_my_grades(client)
     await client.aclose()
 
-    assert grades == [{
-        "course_id": 101, "course_name": "Algorithms",
-        "current_score": 78.5, "current_grade": "B+", "final_score": 70.2,
-    }]
+    assert result == {
+        "grades": [{
+            "course_id": 101, "course_name": "Algorithms",
+            "current_score": 78.5, "current_grade": "B+", "final_score": 70.2,
+        }],
+        "truncated": False,
+    }
 
 
 @respx.mock
@@ -45,9 +55,11 @@ async def test_my_grades_filters_to_one_course():
         ])
     )
     client = CanvasClient(CFG)
-    grades = await do_my_grades(client, course_id=202)
+    result = await do_my_grades(client, course_id=202)
     await client.aclose()
 
+    grades = result["grades"]
+    assert result["truncated"] is False
     assert len(grades) == 1
     assert grades[0]["course_id"] == 202
 
@@ -66,9 +78,11 @@ async def test_my_grades_skips_course_with_null_enrollments():
         ])
     )
     client = CanvasClient(CFG)
-    grades = await do_my_grades(client)
+    result = await do_my_grades(client)
     await client.aclose()
 
+    grades = result["grades"]
+    assert result["truncated"] is False
     assert len(grades) == 1
     assert grades[0]["course_id"] == 101
 
@@ -85,9 +99,11 @@ async def test_list_assignments_flattens_submission_state():
         ])
     )
     client = CanvasClient(CFG)
-    items = await do_list_assignments(client, 101)
+    result = await do_list_assignments(client, 101)
     await client.aclose()
 
+    items = result["assignments"]
+    assert result["truncated"] is False
     assert items[0]["submitted"] is True
     assert items[0]["score"] is None
     assert items[1]["score"] == 9.0
@@ -99,9 +115,10 @@ async def test_list_assignments_passes_bucket_filter():
         return_value=httpx.Response(200, json=[])
     )
     client = CanvasClient(CFG)
-    await do_list_assignments(client, 101, bucket="overdue")
+    result = await do_list_assignments(client, 101, bucket="overdue")
     await client.aclose()
     assert route.calls[0].request.url.params["bucket"] == "overdue"
+    assert result == {"assignments": [], "truncated": False}
 
 
 @respx.mock
@@ -213,9 +230,344 @@ async def test_announcements_scopes_to_a_course_context():
         ])
     )
     client = CanvasClient(CFG)
-    items = await do_course_announcements(client, course_id=101)
+    result = await do_course_announcements(client, course_id=101)
     await client.aclose()
 
+    items = result["announcements"]
+    assert result["truncated"] is False
     assert items[0]["title"] == "Midterm venue"
     assert items[0]["course_id"] == 101
     assert "course_101" in route.calls[0].request.url.params.get_list("context_codes[]")
+
+
+@respx.mock
+async def test_my_grades_reports_truncation_when_max_pages_exceeded():
+    base = f"{API}/courses"
+    page3 = respx.get(base, params={"page": "3"}).mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {"id": 303, "name": "C", "enrollments": [{"type": "student", "computed_current_score": 90}]}
+            ],
+        )
+    )
+    respx.get(base, params={"page": "2"}).mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {"id": 202, "name": "B", "enrollments": [{"type": "student", "computed_current_score": 80}]}
+            ],
+            headers={"Link": _link(f"{base}?page=3")},
+        )
+    )
+    respx.get(base).mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {"id": 101, "name": "A", "enrollments": [{"type": "student", "computed_current_score": 70}]}
+            ],
+            headers={"Link": _link(f"{base}?page=2")},
+        )
+    )
+
+    client = CanvasClient(SMALL)
+    result = await do_my_grades(client)
+    await client.aclose()
+
+    assert [g["course_id"] for g in result["grades"]] == [101, 202]
+    assert result["truncated"] is True
+    assert not page3.called
+
+
+@respx.mock
+async def test_list_assignments_reports_truncation_when_max_pages_exceeded():
+    base = f"{API}/courses/101/assignments"
+    page3 = respx.get(base, params={"page": "3"}).mock(
+        return_value=httpx.Response(200, json=[{"id": 3, "name": "PS3"}])
+    )
+    respx.get(base, params={"page": "2"}).mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 2, "name": "PS2"}],
+            headers={"Link": _link(f"{base}?page=3")},
+        )
+    )
+    respx.get(base).mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 1, "name": "PS1"}],
+            headers={"Link": _link(f"{base}?page=2")},
+        )
+    )
+
+    client = CanvasClient(SMALL)
+    result = await do_list_assignments(client, 101)
+    await client.aclose()
+
+    assert [a["id"] for a in result["assignments"]] == [1, 2]
+    assert result["truncated"] is True
+    assert not page3.called
+
+
+@respx.mock
+async def test_announcements_reports_truncation_when_announcements_exceed_max_pages():
+    base = f"{API}/announcements"
+    page3 = respx.get(base, params={"page": "3"}).mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 3, "title": "A3", "message": "m3", "context_code": "course_101"}],
+        )
+    )
+    respx.get(base, params={"page": "2"}).mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 2, "title": "A2", "message": "m2", "context_code": "course_101"}],
+            headers={"Link": _link(f"{base}?page=3")},
+        )
+    )
+    respx.get(base).mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 1, "title": "A1", "message": "m1", "context_code": "course_101"}],
+            headers={"Link": _link(f"{base}?page=2")},
+        )
+    )
+
+    client = CanvasClient(SMALL)
+    result = await do_course_announcements(client, course_id=101)
+    await client.aclose()
+
+    assert [a["id"] for a in result["announcements"]] == [1, 2]
+    assert result["truncated"] is True
+    assert not page3.called
+
+
+@respx.mock
+async def test_announcements_all_courses_reports_not_truncated():
+    respx.get(f"{API}/courses").mock(
+        return_value=httpx.Response(200, json=[{"id": 101}, {"id": 202}])
+    )
+    announcements_route = respx.get(f"{API}/announcements").mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 5, "title": "Update", "message": "Hi", "context_code": "course_101"}],
+        )
+    )
+
+    client = CanvasClient(CFG)
+    result = await do_course_announcements(client)
+    await client.aclose()
+
+    assert announcements_route.calls[0].request.url.params.get_list("context_codes[]") == [
+        "course_101",
+        "course_202",
+    ]
+    assert [a["id"] for a in result["announcements"]] == [5]
+    assert result["truncated"] is False
+
+
+@respx.mock
+async def test_announcements_reports_truncation_when_courses_exceed_max_pages():
+    courses_base = f"{API}/courses"
+    page3_courses = respx.get(courses_base, params={"page": "3"}).mock(
+        return_value=httpx.Response(200, json=[{"id": 303}])
+    )
+    respx.get(courses_base, params={"page": "2"}).mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 202}],
+            headers={"Link": _link(f"{courses_base}?page=3")},
+        )
+    )
+    respx.get(courses_base).mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 101}],
+            headers={"Link": _link(f"{courses_base}?page=2")},
+        )
+    )
+    announcements_route = respx.get(f"{API}/announcements").mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 5, "title": "Update", "message": "Hi", "context_code": "course_101"}],
+        )
+    )
+
+    client = CanvasClient(SMALL)
+    result = await do_course_announcements(client)
+    await client.aclose()
+
+    assert not page3_courses.called
+    assert announcements_route.calls[0].request.url.params.get_list("context_codes[]") == [
+        "course_101",
+        "course_202",
+    ]
+    assert [a["id"] for a in result["announcements"]] == [5]
+    assert result["truncated"] is True
+
+
+@respx.mock
+async def test_announcements_empty_active_courses_returns_envelope():
+    respx.get(f"{API}/courses").mock(return_value=httpx.Response(200, json=[]))
+    announcements_route = respx.get(f"{API}/announcements").mock(
+        return_value=httpx.Response(200, json=[])
+    )
+
+    client = CanvasClient(CFG)
+    result = await do_course_announcements(client)
+    await client.aclose()
+
+    assert result == {"announcements": [], "truncated": False}
+    assert not announcements_route.called
+
+
+@respx.mock
+async def test_announcements_empty_codes_preserves_courses_truncation():
+    courses_base = f"{API}/courses"
+    page3_courses = respx.get(courses_base, params={"page": "3"}).mock(
+        return_value=httpx.Response(200, json=[{"id": 303}])
+    )
+    page2_courses = respx.get(courses_base, params={"page": "2"}).mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"name": "Missing id 2"}],
+            headers={"Link": _link(f"{courses_base}?page=3")},
+        )
+    )
+    respx.get(courses_base).mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"name": "Missing id 1"}],
+            headers={"Link": _link(f"{courses_base}?page=2")},
+        )
+    )
+    announcements_route = respx.get(f"{API}/announcements").mock(
+        return_value=httpx.Response(200, json=[])
+    )
+
+    client = CanvasClient(SMALL)
+    result = await do_course_announcements(client)
+    await client.aclose()
+
+    assert result == {"announcements": [], "truncated": True}
+    assert page2_courses.called
+    assert not announcements_route.called
+    assert not page3_courses.called
+
+
+@respx.mock
+async def test_my_grades_preserves_truncation_when_filtered_course_not_on_fetched_pages():
+    base = f"{API}/courses"
+    page3 = respx.get(base, params={"page": "3"}).mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {"id": 303, "name": "C", "enrollments": [{"type": "student", "computed_current_score": 90}]}
+            ],
+        )
+    )
+    respx.get(base, params={"page": "2"}).mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {"id": 202, "name": "B", "enrollments": [{"type": "student", "computed_current_score": 80}]}
+            ],
+            headers={"Link": _link(f"{base}?page=3")},
+        )
+    )
+    respx.get(base).mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {"id": 101, "name": "A", "enrollments": [{"type": "student", "computed_current_score": 70}]}
+            ],
+            headers={"Link": _link(f"{base}?page=2")},
+        )
+    )
+
+    client = CanvasClient(SMALL)
+    result = await do_my_grades(client, course_id=303)
+    await client.aclose()
+
+    assert result == {"grades": [], "truncated": True}
+    assert not page3.called
+
+
+@respx.mock
+async def test_announcements_reports_truncation_when_all_courses_announcements_exceed_max_pages():
+    respx.get(f"{API}/courses").mock(
+        return_value=httpx.Response(200, json=[{"id": 101}])
+    )
+    base = f"{API}/announcements"
+    page3 = respx.get(base, params={"page": "3"}).mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 3, "title": "A3", "message": "m3", "context_code": "course_101"}],
+        )
+    )
+    respx.get(base, params={"page": "2"}).mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 2, "title": "A2", "message": "m2", "context_code": "course_101"}],
+            headers={"Link": _link(f"{base}?page=3")},
+        )
+    )
+    respx.get(base).mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 1, "title": "A1", "message": "m1", "context_code": "course_101"}],
+            headers={"Link": _link(f"{base}?page=2")},
+        )
+    )
+
+    client = CanvasClient(SMALL)
+    result = await do_course_announcements(client)
+    await client.aclose()
+
+    assert [a["id"] for a in result["announcements"]] == [1, 2]
+    assert result["truncated"] is True
+    assert not page3.called
+
+
+@respx.mock
+async def test_student_paginated_mcp_tools_return_truncated_envelope():
+    respx.get(f"{API}/courses").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {"id": 101, "name": "A", "enrollments": [{"type": "student", "computed_current_score": 70}]}
+            ],
+        )
+    )
+    respx.get(f"{API}/courses/101/assignments").mock(
+        return_value=httpx.Response(200, json=[{"id": 1, "name": "PS1"}])
+    )
+    respx.get(f"{API}/announcements").mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 5, "title": "Update", "message": "Hi", "context_code": "course_101"}],
+        )
+    )
+
+    client = CanvasClient(CFG)
+    mcp = FastMCP("test-student")
+    student_tools.register(mcp, lambda: client)
+    try:
+        async with Client(mcp) as mcp_client:
+            grades_res = await mcp_client.call_tool("my_grades", {})
+            assignments_res = await mcp_client.call_tool("list_assignments", {"course_id": 101})
+            ann_res = await mcp_client.call_tool("course_announcements", {"course_id": 101})
+    finally:
+        await client.aclose()
+
+    assert grades_res.is_error is False
+    assert [g["course_id"] for g in grades_res.data["grades"]] == [101]
+    assert grades_res.data["truncated"] is False
+
+    assert assignments_res.is_error is False
+    assert [a["id"] for a in assignments_res.data["assignments"]] == [1]
+    assert assignments_res.data["truncated"] is False
+
+    assert ann_res.is_error is False
+    assert [a["id"] for a in ann_res.data["announcements"]] == [5]
+    assert ann_res.data["truncated"] is False
