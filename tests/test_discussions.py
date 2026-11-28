@@ -1,9 +1,11 @@
 # tests/test_discussions.py
 import httpx
 import respx
+from fastmcp import Client, FastMCP
 
 from canvas_api_mcp.client import CanvasClient
 from canvas_api_mcp.config import Config
+from canvas_api_mcp.tools import discussions as discussion_tools
 from canvas_api_mcp.tools.discussions import (
     _flatten,
     do_post_discussion_reply,
@@ -11,7 +13,12 @@ from canvas_api_mcp.tools.discussions import (
 )
 
 CFG = Config(base_url="https://canvas.example.edu", token="tok", max_pages=10)
+SMALL = Config(base_url="https://canvas.example.edu", token="tok", max_pages=2)
 API = "https://canvas.example.edu/api/v1"
+
+
+def _link(url: str) -> str:
+    return f'<{url}>; rel="next"'
 
 
 def test_flatten_handles_deep_reply_chain():
@@ -65,6 +72,7 @@ async def test_lists_topics_when_no_topic_id():
 
     assert result["topics"][0]["title"] == "PS3 clarifications"
     assert result["topics"][0]["reply_count"] == 12
+    assert result["truncated"] is False
 
 
 @respx.mock
@@ -91,6 +99,7 @@ async def test_reads_a_topic_and_flattens_nested_replies():
     assert result["title"] == "PS3"
     assert [e["id"] for e in result["entries"]] == [1, 2]
     assert result["entries"][1]["depth"] == 1
+    assert "truncated" not in result
 
 
 @respx.mock
@@ -164,3 +173,66 @@ async def test_flatten_handles_unknown_participant_gracefully():
     view = [{"id": 1, "user_id": 999, "message": "hi", "replies": []}]
     entries = _flatten(view, {})
     assert entries[0]["author_name"] is None
+
+
+@respx.mock
+async def test_read_discussion_topics_reports_truncation_when_max_pages_exceeded():
+    base = f"{API}/courses/101/discussion_topics"
+    page3 = respx.get(base, params={"page": "3"}).mock(
+        return_value=httpx.Response(200, json=[{"id": 3, "title": "Topic 3"}])
+    )
+    respx.get(base, params={"page": "2"}).mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 2, "title": "Topic 2"}],
+            headers={"Link": _link(f"{base}?page=3")},
+        )
+    )
+    respx.get(base).mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 1, "title": "Topic 1"}],
+            headers={"Link": _link(f"{base}?page=2")},
+        )
+    )
+
+    client = CanvasClient(SMALL)
+    result = await do_read_discussion(client, 101)
+    await client.aclose()
+
+    assert [t["id"] for t in result["topics"]] == [1, 2]
+    assert result["truncated"] is True
+    assert not page3.called
+
+
+@respx.mock
+async def test_read_discussion_mcp_tool_returns_truncated_envelope():
+    respx.get(f"{API}/courses/101/discussion_topics").mock(
+        return_value=httpx.Response(200, json=[{"id": 1, "title": "Topic 1"}])
+    )
+    respx.get(f"{API}/courses/101/discussion_topics/7").mock(
+        return_value=httpx.Response(200, json={"id": 7, "title": "PS3", "message": "Hi"})
+    )
+    respx.get(f"{API}/courses/101/discussion_topics/7/view").mock(
+        return_value=httpx.Response(200, json={"view": [], "participants": []})
+    )
+
+    client = CanvasClient(CFG)
+    mcp = FastMCP("test-discussions")
+    discussion_tools.register(mcp, lambda: client)
+    try:
+        async with Client(mcp) as mcp_client:
+            list_res = await mcp_client.call_tool("read_discussion", {"course_id": 101})
+            topic_res = await mcp_client.call_tool(
+                "read_discussion", {"course_id": 101, "topic_id": 7}
+            )
+    finally:
+        await client.aclose()
+
+    assert list_res.is_error is False
+    assert [t["id"] for t in list_res.data["topics"]] == [1]
+    assert list_res.data["truncated"] is False
+
+    assert topic_res.is_error is False
+    assert topic_res.data["title"] == "PS3"
+    assert "truncated" not in topic_res.data

@@ -324,6 +324,13 @@ Servers → Edit raw config**:
 `post_discussion_reply`, and `canvas_request` when called with a non-GET method
 (GET calls through `canvas_request` are read-only).
 
+Paginated list tools (`course_content`, `list_files`, `my_grades`,
+`list_assignments`, `course_announcements`, and `read_discussion` when listing
+topics) return a dict with the items under a domain key (`modules`, `files`,
+`grades`, `assignments`, `announcements`, or `topics`) plus a `truncated`
+boolean that is `true` when pagination stopped at `CANVAS_MAX_PAGES` or an
+off-origin `Link` header.
+
 `search_canvas_api` + `canvas_request` reach all ~1,116 endpoints your instance
 exposes. What they may do is decided by Canvas from your token's permissions: a
 teacher token unlocks educator endpoints with no change to this server.

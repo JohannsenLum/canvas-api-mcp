@@ -151,8 +151,9 @@ async def test_announcements_fence_the_message():
         ])
     )
     out = await do_course_announcements(CanvasClient(CFG))
-    assert len(out) == 1
-    assert_fenced(out[0]["message"], "announcement.message")
+    assert out["truncated"] is False
+    assert len(out["announcements"]) == 1
+    assert_fenced(out["announcements"][0]["message"], "announcement.message")
 
 
 @respx.mock

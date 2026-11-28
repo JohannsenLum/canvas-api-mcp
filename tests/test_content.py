@@ -1,9 +1,11 @@
 # tests/test_content.py
 import httpx
 import respx
+from fastmcp import Client, FastMCP
 
 from canvas_api_mcp.client import CanvasClient
 from canvas_api_mcp.config import Config
+from canvas_api_mcp.tools import content as content_tools
 from canvas_api_mcp.tools.content import (
     do_course_content,
     do_get_page,
@@ -12,7 +14,12 @@ from canvas_api_mcp.tools.content import (
 )
 
 CFG = Config(base_url="https://canvas.example.edu", token="tok", max_pages=10)
+SMALL = Config(base_url="https://canvas.example.edu", token="tok", max_pages=2)
 API = "https://canvas.example.edu/api/v1"
+
+
+def _link(url: str) -> str:
+    return f'<{url}>; rel="next"'
 
 
 @respx.mock
@@ -26,9 +33,11 @@ async def test_course_content_nests_items_under_modules():
         ])
     )
     client = CanvasClient(CFG)
-    modules = await do_course_content(client, 101)
+    result = await do_course_content(client, 101)
     await client.aclose()
 
+    modules = result["modules"]
+    assert result["truncated"] is False
     assert modules[0]["name"] == "Week 1"
     assert modules[0]["items"][0] == {
         "id": 11, "title": "Lecture 1", "type": "File",
@@ -46,9 +55,11 @@ async def test_course_content_handles_null_items():
         ])
     )
     client = CanvasClient(CFG)
-    modules = await do_course_content(client, 101)
+    result = await do_course_content(client, 101)
     await client.aclose()
 
+    modules = result["modules"]
+    assert result["truncated"] is False
     assert modules[0]["name"] == "Restricted Module"
     assert modules[0]["items"] == []
 
@@ -59,9 +70,10 @@ async def test_course_content_requests_items_inline():
         return_value=httpx.Response(200, json=[])
     )
     client = CanvasClient(CFG)
-    await do_course_content(client, 101)
+    result = await do_course_content(client, 101)
     await client.aclose()
     assert "items" in route.calls[0].request.url.params.get_list("include[]")
+    assert result == {"modules": [], "truncated": False}
 
 
 @respx.mock
@@ -73,9 +85,11 @@ async def test_list_files_shapes_metadata():
         ])
     )
     client = CanvasClient(CFG)
-    files = await do_list_files(client, 101)
+    result = await do_list_files(client, 101)
     await client.aclose()
 
+    files = result["files"]
+    assert result["truncated"] is False
     assert files[0]["display_name"] == "lec01.pdf"
     assert files[0]["content_type"] == "application/pdf"
     assert files[0]["size"] == 1024
@@ -87,9 +101,10 @@ async def test_list_files_passes_search_term():
         return_value=httpx.Response(200, json=[])
     )
     client = CanvasClient(CFG)
-    await do_list_files(client, 101, search="tutorial")
+    result = await do_list_files(client, 101, search="tutorial")
     await client.aclose()
     assert route.calls[0].request.url.params["search_term"] == "tutorial"
+    assert result == {"files": [], "truncated": False}
 
 
 @respx.mock
@@ -133,3 +148,97 @@ async def test_get_syllabus_requests_and_returns_syllabus_body():
     # tests/test_safety.py; here we only care that the content survived intact.
     assert "<p>Grading: 40/60</p>" in syllabus["syllabus_body"]
     assert set(syllabus) == {"name", "syllabus_body"}
+
+
+@respx.mock
+async def test_course_content_reports_truncation_when_max_pages_exceeded():
+    base = f"{API}/courses/101/modules"
+    page3 = respx.get(base, params={"page": "3"}).mock(
+        return_value=httpx.Response(
+            200, json=[{"id": 3, "name": "Week 3", "position": 3, "items": []}]
+        )
+    )
+    respx.get(base, params={"page": "2"}).mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 2, "name": "Week 2", "position": 2, "items": []}],
+            headers={"Link": _link(f"{base}?page=3")},
+        )
+    )
+    respx.get(base).mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 1, "name": "Week 1", "position": 1, "items": []}],
+            headers={"Link": _link(f"{base}?page=2")},
+        )
+    )
+
+    client = CanvasClient(SMALL)
+    result = await do_course_content(client, 101)
+    await client.aclose()
+
+    assert [m["id"] for m in result["modules"]] == [1, 2]
+    assert result["truncated"] is True
+    assert not page3.called
+
+
+@respx.mock
+async def test_list_files_reports_truncation_when_max_pages_exceeded():
+    base = f"{API}/courses/101/files"
+    page3 = respx.get(base, params={"page": "3"}).mock(
+        return_value=httpx.Response(
+            200, json=[{"id": 503, "display_name": "lec03.pdf"}]
+        )
+    )
+    respx.get(base, params={"page": "2"}).mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 502, "display_name": "lec02.pdf"}],
+            headers={"Link": _link(f"{base}?page=3")},
+        )
+    )
+    respx.get(base).mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 501, "display_name": "lec01.pdf"}],
+            headers={"Link": _link(f"{base}?page=2")},
+        )
+    )
+
+    client = CanvasClient(SMALL)
+    result = await do_list_files(client, 101)
+    await client.aclose()
+
+    assert [f["id"] for f in result["files"]] == [501, 502]
+    assert result["truncated"] is True
+    assert not page3.called
+
+
+@respx.mock
+async def test_content_mcp_tools_return_truncated_envelope():
+    respx.get(f"{API}/courses/101/modules").mock(
+        return_value=httpx.Response(
+            200, json=[{"id": 1, "name": "Week 1", "position": 1, "items": []}]
+        )
+    )
+    respx.get(f"{API}/courses/101/files").mock(
+        return_value=httpx.Response(200, json=[{"id": 501, "display_name": "lec01.pdf"}])
+    )
+
+    client = CanvasClient(CFG)
+    mcp = FastMCP("test-content")
+    content_tools.register(mcp, lambda: client)
+    try:
+        async with Client(mcp) as mcp_client:
+            content_res = await mcp_client.call_tool("course_content", {"course_id": 101})
+            files_res = await mcp_client.call_tool("list_files", {"course_id": 101})
+    finally:
+        await client.aclose()
+
+    assert content_res.is_error is False
+    assert [m["id"] for m in content_res.data["modules"]] == [1]
+    assert content_res.data["truncated"] is False
+
+    assert files_res.is_error is False
+    assert [f["id"] for f in files_res.data["files"]] == [501]
+    assert files_res.data["truncated"] is False
